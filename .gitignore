@@ -58,3 +58,13 @@ app.*.map.json
 # Hive
 *.hive
 *.lock
+
+# Local configurations and credentials
+lib/config/keys.dart
+
+# Claude/AI settings
+.claude/
+
+# Test temp directories
+test_hive/
+
