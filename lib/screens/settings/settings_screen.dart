@@ -3,9 +3,84 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/db_config_service.dart';
+import '../../services/leancloud_service.dart';
+import '../auth/login_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String _getCurrentDbName() {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return 'Supabase 数据库';
+      case DbType.webdav:
+        return '坚果云 / WebDAV 云同步';
+      case DbType.local:
+        return '纯本地离线单机';
+      case DbType.leancloud:
+        return 'LeanCloud / TDS 数据库';
+    }
+  }
+
+  Future<void> _triggerManualSync(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 16),
+                Text('正在同步云端数据...', style: TextStyle(fontSize: 15)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // 检查/同步配对关系
+      await LeanCloudService.checkPairStatus();
+      
+      // 同步各个业务模块
+      await LeanCloudService.fetchDiaries();
+      await LeanCloudService.fetchWishes();
+      await LeanCloudService.fetchAnniversaries();
+      await LeanCloudService.fetchPeriodLogs();
+      await LeanCloudService.fetchIntimacyLogs();
+
+      if (mounted) {
+        Navigator.pop(context); // 关闭加载框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('数据同步成功！✨'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // 关闭加载框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('同步失败：$e ❌'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +119,53 @@ class SettingsScreen extends StatelessWidget {
             ]),
           ),
           const SizedBox(height: 16),
+
+          // 数据库与云同步设置
+          Container(
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            child: Column(
+              children: [
+                ListTile(
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  leading: const Icon(Icons.dns_rounded, color: Colors.blueAccent),
+                  title: const Text('数据同步引擎设置'),
+                  subtitle: Text(_getCurrentDbName()),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () async {
+                    await showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const DatabaseConfigBottomSheet(),
+                    );
+                    setState(() {}); // 刷新页面显示的引擎名称
+                  },
+                ),
+                if (DbConfigService.currentDbType != DbType.local) ...[
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(16),
+                        bottomRight: Radius.circular(16),
+                      ),
+                    ),
+                    leading: const Icon(Icons.sync_rounded, color: Colors.green),
+                    title: const Text('立即手动同步数据'),
+                    subtitle: const Text('从云端获取最新数据并与本地合并'),
+                    onTap: () => _triggerManualSync(context),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // 退出登录
           Container(
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
@@ -106,3 +228,4 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 }
+

@@ -3,9 +3,479 @@ import 'dart:math';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import '../config/constants.dart';
+import 'db_config_service.dart';
+import 'supabase_service.dart';
+import 'local_db_service.dart';
+import 'webdav_service.dart';
 
-/// LeanCloud / TDS 服务层 - 真实 REST API 实现
+/// 统一数据服务层 - 分发分流网关
 class LeanCloudService {
+  static Future<void> initialize() async {
+    await DbConfigService.initialize();
+  }
+
+  /// 注册或登录
+  static Future<Map<String, dynamic>> registerOrLogin(
+      String username, String password) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.registerOrLogin(username, password);
+      case DbType.webdav:
+        return WebdavService.registerOrLogin(username, password);
+      case DbType.local:
+        return LocalDbService.registerOrLogin(username, password);
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.registerOrLogin(username, password);
+    }
+  }
+
+  /// 获取当前用户（本地缓存）
+  static Future<Map<String, dynamic>?> getCurrentUser() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.getCurrentUser();
+      case DbType.webdav:
+        return WebdavService.getCurrentUser();
+      case DbType.local:
+        return LocalDbService.getCurrentUser();
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.getCurrentUser();
+    }
+  }
+
+  /// 获取本地保存的 Relation
+  static Future<Map<String, dynamic>?> getLocalRelation() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.getLocalRelation();
+      case DbType.webdav:
+        return WebdavService.getLocalRelation();
+      case DbType.local:
+        return LocalDbService.getLocalRelation();
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.getLocalRelation();
+    }
+  }
+
+  /// 检查配对状态
+  static Future<Map<String, dynamic>?> checkPairStatus() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.checkPairStatus();
+      case DbType.webdav:
+        return WebdavService.checkPairStatus();
+      case DbType.local:
+        return LocalDbService.checkPairStatus();
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.checkPairStatus();
+    }
+  }
+
+  /// 通过邀请码配对
+  static Future<void> pairWithInviteCode(String inviteCode) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.pairWithInviteCode(inviteCode);
+      case DbType.webdav:
+        return WebdavService.pairWithInviteCode(inviteCode);
+      case DbType.local:
+        return LocalDbService.pairWithInviteCode(inviteCode);
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.pairWithInviteCode(inviteCode);
+    }
+  }
+
+  /// 更新当前用户的昵称
+  static Future<void> updateNickname(String newNickname) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.updateNickname(newNickname);
+      case DbType.webdav:
+        return WebdavService.updateNickname(newNickname);
+      case DbType.local:
+        return LocalDbService.updateNickname(newNickname);
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.updateNickname(newNickname);
+    }
+  }
+
+  /// 更新共享空间配置
+  static Future<void> updateCoupleSettings({
+    required String user1Name,
+    required String user2Name,
+    required String user1Gender,
+    required String user2Gender,
+    required String firstMetDate,
+    required String anniversaryDate,
+  }) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.updateCoupleSettings(
+          user1Name: user1Name,
+          user2Name: user2Name,
+          user1Gender: user1Gender,
+          user2Gender: user2Gender,
+          firstMetDate: firstMetDate,
+          anniversaryDate: anniversaryDate,
+        );
+      case DbType.webdav:
+        return WebdavService.updateCoupleSettings(
+          user1Name: user1Name,
+          user2Name: user2Name,
+          user1Gender: user1Gender,
+          user2Gender: user2Gender,
+          firstMetDate: firstMetDate,
+          anniversaryDate: anniversaryDate,
+        );
+      case DbType.local:
+        return LocalDbService.updateCoupleSettings(
+          user1Name: user1Name,
+          user2Name: user2Name,
+          user1Gender: user1Gender,
+          user2Gender: user2Gender,
+          firstMetDate: firstMetDate,
+          anniversaryDate: anniversaryDate,
+        );
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.updateCoupleSettings(
+          user1Name: user1Name,
+          user2Name: user2Name,
+          user1Gender: user1Gender,
+          user2Gender: user2Gender,
+          firstMetDate: firstMetDate,
+          anniversaryDate: anniversaryDate,
+        );
+    }
+  }
+
+  /// 发射爱心，云端递增计数
+  static Future<int> sendHeartbeat() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.sendHeartbeat();
+      case DbType.webdav:
+        return WebdavService.sendHeartbeat();
+      case DbType.local:
+        return LocalDbService.sendHeartbeat();
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.sendHeartbeat();
+    }
+  }
+
+  /// 注销账号
+  static Future<void> deleteAccount() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.deleteAccount();
+      case DbType.webdav:
+        return WebdavService.deleteAccount();
+      case DbType.local:
+        return LocalDbService.deleteAccount();
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.deleteAccount();
+    }
+  }
+
+  /// 退出登录
+  static Future<void> logout() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.logout();
+      case DbType.webdav:
+        return WebdavService.logout();
+      case DbType.local:
+        return LocalDbService.logout();
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.logout();
+    }
+  }
+
+  /// ----------------------------------------
+  /// 日记模块云同步
+  /// ----------------------------------------
+  static Future<List<Map<String, dynamic>>> fetchDiaries() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.fetchDiaries();
+      case DbType.webdav:
+        return WebdavService.fetchDiaries();
+      case DbType.local:
+        return LocalDbService.fetchDiaries();
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.fetchDiaries();
+    }
+  }
+
+  static Future<void> saveDiary({
+    String? objectId,
+    required String content,
+    required String mood,
+    required String weather,
+    required List<String> tags,
+    required String date,
+    String? imageUrl,
+  }) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.saveDiary(
+          objectId: objectId,
+          content: content,
+          mood: mood,
+          weather: weather,
+          tags: tags,
+          date: date,
+          imageUrl: imageUrl,
+        );
+      case DbType.webdav:
+        return WebdavService.saveDiary(
+          objectId: objectId,
+          content: content,
+          mood: mood,
+          weather: weather,
+          tags: tags,
+          date: date,
+          imageUrl: imageUrl,
+        );
+      case DbType.local:
+        return LocalDbService.saveDiary(
+          objectId: objectId,
+          content: content,
+          mood: mood,
+          weather: weather,
+          tags: tags,
+          date: date,
+          imageUrl: imageUrl,
+        );
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.saveDiary(
+          objectId: objectId,
+          content: content,
+          mood: mood,
+          weather: weather,
+          tags: tags,
+          date: date,
+          imageUrl: imageUrl,
+        );
+    }
+  }
+
+  static Future<void> deleteDiary(String objectId) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.deleteDiary(objectId);
+      case DbType.webdav:
+        return WebdavService.deleteDiary(objectId);
+      case DbType.local:
+        return LocalDbService.deleteDiary(objectId);
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.deleteDiary(objectId);
+    }
+  }
+
+  /// ----------------------------------------
+  /// 心愿模块云同步
+  /// ----------------------------------------
+  static Future<List<Map<String, dynamic>>> fetchWishes() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.fetchWishes();
+      case DbType.webdav:
+        return WebdavService.fetchWishes();
+      case DbType.local:
+        return LocalDbService.fetchWishes();
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.fetchWishes();
+    }
+  }
+
+  static Future<void> saveWish({
+    required String title,
+    bool completed = false,
+  }) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.saveWish(title: title, completed: completed);
+      case DbType.webdav:
+        return WebdavService.saveWish(title: title, completed: completed);
+      case DbType.local:
+        return LocalDbService.saveWish(title: title, completed: completed);
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.saveWish(title: title, completed: completed);
+    }
+  }
+
+  static Future<void> toggleWish(String objectId, bool completed) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.toggleWish(objectId, completed);
+      case DbType.webdav:
+        return WebdavService.toggleWish(objectId, completed);
+      case DbType.local:
+        return LocalDbService.toggleWish(objectId, completed);
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.toggleWish(objectId, completed);
+    }
+  }
+
+  static Future<void> deleteWish(String objectId) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.deleteWish(objectId);
+      case DbType.webdav:
+        return WebdavService.deleteWish(objectId);
+      case DbType.local:
+        return LocalDbService.deleteWish(objectId);
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.deleteWish(objectId);
+    }
+  }
+
+  /// ----------------------------------------
+  /// 纪念日模块云同步
+  /// ----------------------------------------
+  static Future<List<Map<String, dynamic>>> fetchAnniversaries() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.fetchAnniversaries();
+      case DbType.webdav:
+        return WebdavService.fetchAnniversaries();
+      case DbType.local:
+        return LocalDbService.fetchAnniversaries();
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.fetchAnniversaries();
+    }
+  }
+
+  static Future<void> saveAnniversary({
+    required String title,
+    required String date,
+    required String icon,
+  }) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.saveAnniversary(title: title, date: date, icon: icon);
+      case DbType.webdav:
+        return WebdavService.saveAnniversary(title: title, date: date, icon: icon);
+      case DbType.local:
+        return LocalDbService.saveAnniversary(title: title, date: date, icon: icon);
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.saveAnniversary(title: title, date: date, icon: icon);
+    }
+  }
+
+  /// ----------------------------------------
+  /// 生理期与亲密记（爱爱记录）云端管理
+  /// ----------------------------------------
+  static Future<List<String>> fetchPeriodLogs() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.fetchPeriodLogs();
+      case DbType.webdav:
+        return WebdavService.fetchPeriodLogs();
+      case DbType.local:
+        return LocalDbService.fetchPeriodLogs();
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.fetchPeriodLogs();
+    }
+  }
+
+  static Future<void> togglePeriodLog(String dateString, bool isPeriod) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.togglePeriodLog(dateString, isPeriod);
+      case DbType.webdav:
+        return WebdavService.togglePeriodLog(dateString, isPeriod);
+      case DbType.local:
+        return LocalDbService.togglePeriodLog(dateString, isPeriod);
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.togglePeriodLog(dateString, isPeriod);
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchIntimacyLogs() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.fetchIntimacyLogs();
+      case DbType.webdav:
+        return WebdavService.fetchIntimacyLogs();
+      case DbType.local:
+        return LocalDbService.fetchIntimacyLogs();
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.fetchIntimacyLogs();
+    }
+  }
+
+  static Future<void> saveIntimacyLog({
+    String? objectId,
+    required String date,
+    required String mood,
+    required double rating,
+    required String note,
+  }) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.saveIntimacyLog(
+          objectId: objectId,
+          date: date,
+          mood: mood,
+          rating: rating,
+          note: note,
+        );
+      case DbType.webdav:
+        return WebdavService.saveIntimacyLog(
+          objectId: objectId,
+          date: date,
+          mood: mood,
+          rating: rating,
+          note: note,
+        );
+      case DbType.local:
+        return LocalDbService.saveIntimacyLog(
+          objectId: objectId,
+          date: date,
+          mood: mood,
+          rating: rating,
+          note: note,
+        );
+      case DbType.leancloud:
+      default:
+        return _LeanCloudRealImpl.saveIntimacyLog(
+          objectId: objectId,
+          date: date,
+          mood: mood,
+          rating: rating,
+          note: note,
+        );
+    }
+  }
+}
+
+/// ----------------------------------------------------
+/// 原 LeanCloud / TDS 服务真实底层实现
+/// ----------------------------------------------------
+class _LeanCloudRealImpl {
   static const String _baseUrl = AppConstants.leanCloudServerUrl;
   static const String _appId = AppConstants.leanCloudAppId;
   static const String _appKey = AppConstants.leanCloudAppKey;
@@ -23,15 +493,10 @@ class LeanCloudService {
     };
   }
 
-  static Future<void> initialize() async {
-    // REST API client doesn't need SDK level configuration
-  }
-
   /// 注册或登录
   static Future<Map<String, dynamic>> registerOrLogin(
       String username, String password) async {
     try {
-      // 1. 查询用户是否存在
       final queryUrl = Uri.parse('$_baseUrl/1.1/users?where=${Uri.encodeComponent('{"username":"$username"}')}');
       final queryResponse = await http.get(queryUrl, headers: _headers);
 
@@ -40,7 +505,6 @@ class LeanCloudService {
         final List results = queryData['results'] ?? [];
 
         if (results.isNotEmpty) {
-          // 用户存在，直接登录
           final loginUrl = Uri.parse('$_baseUrl/1.1/login');
           final loginResponse = await http.post(
             loginUrl,
@@ -60,10 +524,7 @@ class LeanCloudService {
             throw Exception(errorData['error'] ?? '登录失败，请检查密码');
           }
         } else {
-          // 用户不存在，注册新账号
           final registerUrl = Uri.parse('$_baseUrl/1.1/users');
-          
-          // 循环生成不重复的唯一邀请码
           String inviteCode = _generateInviteCode();
           bool isUnique = false;
           int attempts = 0;
@@ -74,7 +535,6 @@ class LeanCloudService {
                 inviteCode = _generateInviteCode();
               }
             } catch (e) {
-              print('检查邀请码唯一性时出错: $e');
               inviteCode = _generateInviteCode();
             }
             attempts++;
@@ -90,7 +550,7 @@ class LeanCloudService {
             'nickname': username,
             'invite_code': inviteCode,
             'status': 'single',
-            'gender': 'male', // 默认性别男，在初始化页面修改
+            'gender': 'male',
           };
 
           final registerResponse = await http.post(
@@ -116,19 +576,14 @@ class LeanCloudService {
         throw Exception('网络连接异常：${queryResponse.statusCode}');
       }
     } catch (e) {
-      print("TDS Network failed. Check local cache: $e");
-      // Check if we already have a cached current_user with this name to preserve it
       final currentCached = await getCurrentUser();
       if (currentCached != null && currentCached['username'] == username) {
         return currentCached;
       }
-      
-      // If we don't have it cached, throw the error instead of silently registering offline
-      throw Exception('无法连接至云端服务，请检查网络或确认数据库是否可用：$e');
+      throw Exception('无法连接至云端服务：$e');
     }
   }
 
-  /// 获取当前用户（从本地缓存）
   static Future<Map<String, dynamic>?> getCurrentUser() async {
     final box = await Hive.openBox('user');
     final user = box.get('current_user');
@@ -136,13 +591,11 @@ class LeanCloudService {
     return Map<String, dynamic>.from(user as Map);
   }
 
-  /// 保存用户信息到本地
   static Future<void> _saveUserToLocal(Map<String, dynamic> user) async {
     final box = await Hive.openBox('user');
     await box.put('current_user', user);
   }
 
-  /// 获取本地保存的 Relation
   static Future<Map<String, dynamic>?> getLocalRelation() async {
     final box = await Hive.openBox('user');
     final relation = box.get('couple_relation');
@@ -150,7 +603,6 @@ class LeanCloudService {
     return Map<String, dynamic>.from(relation as Map);
   }
 
-  /// 检查配对状态
   static Future<Map<String, dynamic>?> checkPairStatus() async {
     final user = await getCurrentUser();
     if (user == null) return null;
@@ -169,7 +621,6 @@ class LeanCloudService {
           final box = await Hive.openBox('user');
           await box.put('couple_relation', relation);
 
-          // 更新本地用户状态为已配对
           user['status'] = 'paired';
           user['couple_id'] = relation['couple_id'];
           user['partner_id'] = relation['user1_id'] == userId ? relation['user2_id'] : relation['user1_id'];
@@ -179,14 +630,11 @@ class LeanCloudService {
         }
       }
     } catch (e) {
-      print("checkPairStatus offline fallback: $e");
+      print("LC checkPairStatus offline fallback: $e");
     }
 
-    // Offline fallback
     final localRel = await getLocalRelation();
-    if (localRel != null) {
-      return localRel;
-    }
+    if (localRel != null) return localRel;
 
     if (user['status'] == 'paired' && user['couple_id'] != null) {
       final relation = {
@@ -206,11 +654,9 @@ class LeanCloudService {
       await box.put('couple_relation', relation);
       return relation;
     }
-
     return null;
   }
 
-  /// 通过邀请码配对
   static Future<void> pairWithInviteCode(String inviteCode) async {
     final currentUser = await getCurrentUser();
     if (currentUser == null) throw Exception('请先登录');
@@ -219,7 +665,6 @@ class LeanCloudService {
     final currentUserNickname = currentUser['nickname'] ?? currentUser['username'];
 
     try {
-      // 1. 查询持有此邀请码的另一位用户
       final queryUrl = Uri.parse('$_baseUrl/1.1/users?where=${Uri.encodeComponent('{"invite_code":"$inviteCode"}')}');
       final response = await http.get(queryUrl, headers: _headers);
 
@@ -241,7 +686,6 @@ class LeanCloudService {
         throw Exception('不能与自己配对哦！');
       }
 
-      // 2. 检查是否已经被别人配对
       final checkUrl = Uri.parse('$_baseUrl/1.1/classes/CoupleRelation?where=${Uri.encodeComponent('{"\$or":[{"user1_id":"$partnerId"},{"user2_id":"$partnerId"},{"user1_id":"$currentUserId"},{"user2_id":"$currentUserId"}]}')}');
       final checkResponse = await http.get(checkUrl, headers: _headers);
       if (checkResponse.statusCode == 200) {
@@ -252,7 +696,6 @@ class LeanCloudService {
         }
       }
 
-      // 3. 创建 CoupleRelation 配对关系
       final coupleId = 'couple_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
       final relationBody = {
         'user1_id': partnerId,
@@ -275,19 +718,16 @@ class LeanCloudService {
       );
 
       if (createResponse.statusCode == 201) {
-        // 成功配对
         await checkPairStatus();
       } else {
         final errorData = jsonDecode(createResponse.body);
         throw Exception(errorData['error'] ?? '创建关系失败');
       }
     } catch (e) {
-      print("pairWithInviteCode error: $e");
       rethrow;
     }
   }
 
-  /// 更新当前用户的昵称
   static Future<void> updateNickname(String newNickname) async {
     final user = await getCurrentUser();
     if (user == null) throw Exception('请先登录');
@@ -295,11 +735,9 @@ class LeanCloudService {
     final userId = user['objectId'];
     final sessionToken = user['sessionToken'] ?? '';
 
-    // 1. 更新本地缓存
     user['nickname'] = newNickname;
     await _saveUserToLocal(user);
 
-    // 2. 更新云端数据库
     try {
       final url = Uri.parse('$_baseUrl/1.1/users/$userId');
       final headers = sessionToken.isNotEmpty
@@ -314,11 +752,10 @@ class LeanCloudService {
         }),
       );
     } catch (e) {
-      print("updateNickname cloud failure, using local cache: $e");
+      print("LC updateNickname failure: $e");
     }
   }
 
-  /// 更新共享空间配置
   static Future<void> updateCoupleSettings({
     required String user1Name,
     required String user2Name,
@@ -361,7 +798,6 @@ class LeanCloudService {
           currentUser['nickname'] = currentNickname;
           await _saveUserToLocal(currentUser);
 
-          // 更新本地用户表在云端的字段
           final userUrl = Uri.parse('$_baseUrl/1.1/users/$currentUserId');
           await http.put(
             userUrl,
@@ -372,14 +808,11 @@ class LeanCloudService {
             }),
           );
         }
-      } else {
-        print("Cloud update failed with status: ${response.statusCode}");
       }
     } catch (e) {
-      print("updateCoupleSettings offline fallback: $e");
+      print("LC updateCoupleSettings error: $e");
     }
 
-    // Save locally to preserve changes
     relation['user1_name'] = user1Name;
     relation['user2_name'] = user2Name;
     relation['user1_gender'] = user1Gender;
@@ -401,7 +834,6 @@ class LeanCloudService {
     }
   }
 
-  /// 发射爱心，云端递增计数
   static Future<int> sendHeartbeat() async {
     final relation = await getLocalRelation();
     if (relation == null) return 0;
@@ -433,10 +865,9 @@ class LeanCloudService {
         return newCount;
       }
     } catch (e) {
-      print("sendHeartbeat offline fallback: $e");
+      print("LC sendHeartbeat failure: $e");
     }
 
-    // Local increment
     final newCount = (relation['heartbeat_count'] ?? 0) + 1;
     relation['heartbeat_count'] = newCount;
     final box = await Hive.openBox('user');
@@ -444,7 +875,6 @@ class LeanCloudService {
     return newCount;
   }
 
-  /// 注销账号
   static Future<void> deleteAccount() async {
     final user = await getCurrentUser();
     if (user != null) {
@@ -454,23 +884,19 @@ class LeanCloudService {
         final url = Uri.parse('$_baseUrl/1.1/users/$userId');
         await http.delete(url, headers: _authenticatedHeaders(sessionToken));
       } catch (e) {
-        print("deleteAccount cloud failure: $e");
+        print("LC deleteAccount error: $e");
       }
     }
     await logout();
   }
 
-  /// 退出登录
   static Future<void> logout() async {
     final box = await Hive.openBox('user');
     await box.delete('current_user');
     await box.delete('couple_relation');
   }
 
-  /// ----------------------------------------
-  /// 日记模块云同步
-  /// ----------------------------------------
-
+  // --- 日记同步 ---
   static Future<List<Map<String, dynamic>>> fetchDiaries() async {
     try {
       final user = await getCurrentUser();
@@ -490,7 +916,7 @@ class LeanCloudService {
         return list;
       }
     } catch (e) {
-      print("fetchDiaries offline fallback: $e");
+      print("LC fetchDiaries error: $e");
     }
 
     final box = await Hive.openBox('diaries');
@@ -540,10 +966,9 @@ class LeanCloudService {
         await http.post(url, headers: _headers, body: jsonEncode(body));
       }
     } catch (e) {
-      print("saveDiary offline fallback: $e");
+      print("LC saveDiary error: $e");
     }
 
-    // Save to local cache
     final box = await Hive.openBox('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
@@ -564,7 +989,7 @@ class LeanCloudService {
       final url = Uri.parse('$_baseUrl/1.1/classes/Diary/$objectId');
       await http.delete(url, headers: _headers);
     } catch (e) {
-      print("deleteDiary offline fallback: $e");
+      print("LC deleteDiary error: $e");
     }
 
     final box = await Hive.openBox('diaries');
@@ -576,10 +1001,7 @@ class LeanCloudService {
     await box.put('list', list);
   }
 
-  /// ----------------------------------------
-  /// 心愿模块云同步
-  /// ----------------------------------------
-
+  // --- 心愿同步 ---
   static Future<List<Map<String, dynamic>>> fetchWishes() async {
     try {
       final user = await getCurrentUser();
@@ -599,7 +1021,7 @@ class LeanCloudService {
         return list;
       }
     } catch (e) {
-      print("fetchWishes offline fallback: $e");
+      print("LC fetchWishes error: $e");
     }
 
     final box = await Hive.openBox('wishes');
@@ -635,7 +1057,7 @@ class LeanCloudService {
       final url = Uri.parse('$_baseUrl/1.1/classes/Wish');
       await http.post(url, headers: _headers, body: jsonEncode(body));
     } catch (e) {
-      print("saveWish offline fallback: $e");
+      print("LC saveWish error: $e");
     }
 
     final box = await Hive.openBox('wishes');
@@ -656,7 +1078,7 @@ class LeanCloudService {
       };
       await http.put(url, headers: _headers, body: jsonEncode(body));
     } catch (e) {
-      print("toggleWish offline fallback: $e");
+      print("LC toggleWish error: $e");
     }
 
     final box = await Hive.openBox('wishes');
@@ -677,7 +1099,7 @@ class LeanCloudService {
       final url = Uri.parse('$_baseUrl/1.1/classes/Wish/$objectId');
       await http.delete(url, headers: _headers);
     } catch (e) {
-      print("deleteWish offline fallback: $e");
+      print("LC deleteWish error: $e");
     }
 
     final box = await Hive.openBox('wishes');
@@ -689,10 +1111,7 @@ class LeanCloudService {
     await box.put('list', list);
   }
 
-  /// ----------------------------------------
-  /// 纪念日模块云同步
-  /// ----------------------------------------
-
+  // --- 纪念日同步 ---
   static Future<List<Map<String, dynamic>>> fetchAnniversaries() async {
     try {
       final user = await getCurrentUser();
@@ -712,7 +1131,7 @@ class LeanCloudService {
         return list;
       }
     } catch (e) {
-      print("fetchAnniversaries offline fallback: $e");
+      print("LC fetchAnniversaries error: $e");
     }
 
     final box = await Hive.openBox('anniversaries');
@@ -749,7 +1168,7 @@ class LeanCloudService {
       final url = Uri.parse('$_baseUrl/1.1/classes/Anniversary');
       await http.post(url, headers: _headers, body: jsonEncode(body));
     } catch (e) {
-      print("saveAnniversary offline fallback: $e");
+      print("LC saveAnniversary error: $e");
     }
 
     final box = await Hive.openBox('anniversaries');
@@ -762,10 +1181,7 @@ class LeanCloudService {
     await box.put('list', list);
   }
 
-  /// ----------------------------------------
-  /// 生理期与亲密记（爱爱记录）云端管理
-  /// ----------------------------------------
-
+  // --- 生理期同步 ---
   static Future<List<String>> fetchPeriodLogs() async {
     try {
       final user = await getCurrentUser();
@@ -785,7 +1201,7 @@ class LeanCloudService {
         return list;
       }
     } catch (e) {
-      print("fetchPeriodLogs offline fallback: $e");
+      print("LC fetchPeriodLogs error: $e");
     }
 
     final box = await Hive.openBox('period_logs');
@@ -803,7 +1219,6 @@ class LeanCloudService {
 
     try {
       if (isPeriod) {
-        // 1. 检查是否已存在
         final query = '{"couple_id":"$coupleId","date":"$dateString"}';
         final checkUrl = Uri.parse('$_baseUrl/1.1/classes/PeriodLog?where=${Uri.encodeComponent(query)}');
         final checkRes = await http.get(checkUrl, headers: _headers);
@@ -823,7 +1238,6 @@ class LeanCloudService {
           }
         }
       } else {
-        // 删除记录
         final query = '{"couple_id":"$coupleId","date":"$dateString"}';
         final queryUrl = Uri.parse('$_baseUrl/1.1/classes/PeriodLog?where=${Uri.encodeComponent(query)}');
         final queryRes = await http.get(queryUrl, headers: _headers);
@@ -838,10 +1252,9 @@ class LeanCloudService {
         }
       }
     } catch (e) {
-      print("togglePeriodLog offline fallback: $e");
+      print("LC togglePeriodLog error: $e");
     }
 
-    // Cache locally
     final box = await Hive.openBox('period_logs');
     final List<String> list = List<String>.from(box.get('list') ?? []);
     if (isPeriod) {
@@ -854,6 +1267,7 @@ class LeanCloudService {
     await box.put('list', list);
   }
 
+  // --- 亲密记同步 ---
   static Future<List<Map<String, dynamic>>> fetchIntimacyLogs() async {
     try {
       final user = await getCurrentUser();
@@ -873,7 +1287,7 @@ class LeanCloudService {
         return list;
       }
     } catch (e) {
-      print("fetchIntimacyLogs offline fallback: $e");
+      print("LC fetchIntimacyLogs error: $e");
     }
 
     final box = await Hive.openBox('intimacy_logs');
@@ -919,10 +1333,9 @@ class LeanCloudService {
         await http.post(url, headers: _headers, body: jsonEncode(body));
       }
     } catch (e) {
-      print("saveIntimacyLog offline fallback: $e");
+      print("LC saveIntimacyLog error: $e");
     }
 
-    // Cache locally
     final box = await Hive.openBox('intimacy_logs');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
@@ -938,10 +1351,6 @@ class LeanCloudService {
     await box.put('list', list);
   }
 
-  /// ----------------------------------------
-  /// 辅助生成器
-  /// ----------------------------------------
-
   static String _generateInviteCode() {
     final random = Random();
     return List.generate(6, (index) => random.nextInt(10)).join();
@@ -955,6 +1364,6 @@ class LeanCloudService {
       final List results = data['results'] ?? [];
       return results.isEmpty;
     }
-    throw Exception('校验邀请码唯一性失败，状态码: ${response.statusCode}');
+    throw Exception('校验邀请码唯一性失败');
   }
 }

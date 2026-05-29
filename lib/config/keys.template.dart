@@ -5,4 +5,8 @@ class AppKeys {
   static const String leanCloudAppId = 'YOUR_LEANCLOUD_APP_ID';
   static const String leanCloudAppKey = 'YOUR_LEANCLOUD_APP_KEY';
   static const String leanCloudServerUrl = 'YOUR_LEANCLOUD_SERVER_URL';
+
+  // Supabase 配置
+  static const String supabaseUrl = 'YOUR_SUPABASE_URL';
+  static const String supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
 }
