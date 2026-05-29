@@ -1,6 +1,8 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/anniversary_card.dart';
+import '../../widgets/heart_overlay.dart';
 import '../diary/diary_list_screen.dart';
 import '../photo/photo_wall_screen.dart';
 import '../anniversary/anniversary_screen.dart';
@@ -76,32 +78,159 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final theme = Theme.of(context);
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: '首页',
+      bottomNavigationBar: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
+            child: Container(
+              height: 64,
+              color: Colors.white.withOpacity(0.85),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _AnimatedNavBarItem(
+                    icon: Icons.home_rounded,
+                    label: '首页',
+                    isActive: _currentIndex == 0,
+                    activeColor: theme.colorScheme.primary,
+                    onTap: () => setState(() => _currentIndex = 0),
+                  ),
+                  _AnimatedNavBarItem(
+                    icon: Icons.auto_stories_rounded,
+                    label: '日记',
+                    isActive: _currentIndex == 1,
+                    activeColor: theme.colorScheme.primary,
+                    onTap: () => setState(() => _currentIndex = 1),
+                  ),
+                  _AnimatedNavBarItem(
+                    icon: Icons.photo_library_rounded,
+                    label: '相册',
+                    isActive: _currentIndex == 2,
+                    activeColor: theme.colorScheme.primary,
+                    onTap: () => setState(() => _currentIndex = 2),
+                  ),
+                  _AnimatedNavBarItem(
+                    icon: Icons.favorite_rounded,
+                    label: '互动',
+                    isActive: _currentIndex == 3,
+                    activeColor: theme.colorScheme.primary,
+                    onTap: () => setState(() => _currentIndex = 3),
+                  ),
+                ],
+              ),
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.auto_stories_rounded),
-            label: '日记',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.photo_library_rounded),
-            label: '相册',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_rounded),
-            label: '互动',
-          ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 底部导航栏弹性缩放项
+class _AnimatedNavBarItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+  final Color activeColor;
+
+  const _AnimatedNavBarItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+    required this.activeColor,
+  });
+
+  @override
+  State<_AnimatedNavBarItem> createState() => _AnimatedNavBarItemState();
+}
+
+class _AnimatedNavBarItemState extends State<_AnimatedNavBarItem> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.8), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 0.8, end: 1.25), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.25, end: 1.0), weight: 30),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedNavBarItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !oldWidget.isActive) {
+      _controller.forward(from: 0.0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        _controller.forward(from: 0.0);
+        widget.onTap();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 60,
+        height: 60,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ScaleTransition(
+              scale: _scaleAnimation,
+              child: Icon(
+                widget.icon,
+                color: widget.isActive ? widget.activeColor : const Color(0xFF8E8E93),
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: 10,
+                color: widget.isActive ? widget.activeColor : const Color(0xFF8E8E93),
+                fontWeight: widget.isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -216,6 +345,9 @@ class _HomeContentState extends State<_HomeContent> {
 
   Future<void> _sendLove() async {
     try {
+      // 触发全屏发射爱心浮动气泡雨粒子动效
+      HeartOverlay.show(context);
+      
       final newCount = await LeanCloudService.sendHeartbeat();
       setState(() {
         _loveClicks = newCount;

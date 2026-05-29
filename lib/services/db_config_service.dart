@@ -29,7 +29,22 @@ class DbConfigService {
   static late Box _box;
 
   static Future<void> initialize() async {
-    _box = await Hive.openBox(_boxName);
+    bool compactionStrategy(int total, int deleted) {
+      // 当删除的记录数量大于 20，且废弃记录比例大于 30% 时，自动触发数据文件压缩整理
+      return deleted > 20 && (deleted / total) > 0.3;
+    }
+
+    _box = await Hive.openBox(_boxName, compactionStrategy: compactionStrategy);
+
+    // 预打开应用常用的数据 Box 提升后续读写性能（减少磁盘 I/O 阻塞时间）
+    await Future.wait([
+      Hive.openBox('user', compactionStrategy: compactionStrategy),
+      Hive.openBox('diaries', compactionStrategy: compactionStrategy),
+      Hive.openBox('wishes', compactionStrategy: compactionStrategy),
+      Hive.openBox('anniversaries', compactionStrategy: compactionStrategy),
+      Hive.openBox('period_logs', compactionStrategy: compactionStrategy),
+      Hive.openBox('intimacy_logs', compactionStrategy: compactionStrategy),
+    ]);
   }
 
   static DbType get currentDbType {

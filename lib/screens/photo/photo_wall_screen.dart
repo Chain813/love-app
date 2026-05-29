@@ -28,7 +28,9 @@ class _PhotoWallScreenState extends State<PhotoWallScreen> {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
+        imageQuality: 80, // 压缩质量降至 80%（人眼无感且大幅压缩体积）
+        maxWidth: 1200,   // 限制图片宽度最大为 1200 像素
+        maxHeight: 1200,  // 限制图片高度最大为 1200 像素
       );
       if (image != null) {
         setState(() {
