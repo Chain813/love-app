@@ -74,12 +74,13 @@ class _PulseAnimationState extends State<PulseAnimation>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
+      child: widget.child,
       builder: (context, child) {
         return Opacity(
           opacity: _opacityAnimation.value,
           child: Transform.scale(
             scale: _scaleAnimation.value,
-            child: widget.child,
+            child: child,
           ),
         );
       },
@@ -133,6 +134,7 @@ class _GlowPulseState extends State<GlowPulse>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _animation,
+      child: widget.child,
       builder: (context, child) {
         return Container(
           decoration: BoxDecoration(
@@ -145,7 +147,7 @@ class _GlowPulseState extends State<GlowPulse>
               ),
             ],
           ),
-          child: widget.child,
+          child: child,
         );
       },
     );
