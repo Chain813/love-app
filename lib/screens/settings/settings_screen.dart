@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/db_config_service.dart';
 import '../../services/leancloud_service.dart';
 import '../auth/login_screen.dart';
+import 'package:animate_do/animate_do.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -91,7 +92,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           // 主题切换
-          Container(
+          FadeInUp(
+            duration: const Duration(milliseconds: 400),
+            child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -109,7 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         color: color,
                         borderRadius: BorderRadius.circular(14),
                         border: isSelected ? Border.all(color: Colors.white, width: 3) : null,
-                        boxShadow: isSelected ? [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 2))] : null,
+                        boxShadow: isSelected ? [BoxShadow(color: color.withOpacity(0.45), blurRadius: 10, spreadRadius: 1, offset: const Offset(0, 2))] : null,
                       ),
                       child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 22) : null,
                     ),
@@ -118,10 +121,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }),
             ]),
           ),
+          ),
           const SizedBox(height: 16),
 
           // 数据库与云同步设置
-          Container(
+          FadeInUp(
+            duration: const Duration(milliseconds: 500),
+            child: Container(
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
             child: Column(
               children: [
@@ -164,10 +170,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
+            ),
+          ),
           const SizedBox(height: 16),
 
           // 退出登录
-          Container(
+          FadeInUp(
+            duration: const Duration(milliseconds: 600),
+            child: Container(
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
             child: ListTile(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -193,9 +203,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
           ),
+            ),
+          ),
           const SizedBox(height: 16),
           // 注销账号
-          Container(
+          FadeInUp(
+            duration: const Duration(milliseconds: 700),
+            child: Container(
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
             child: ListTile(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -219,6 +233,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
                 }
               },
+            ),
             ),
           ),
           const SizedBox(height: 32),

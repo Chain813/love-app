@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-/// 纪念日倒计时卡片组件
+/// 纪念日倒计时卡片组件 — 带渐变装饰条与柔和发光
 class AnniversaryCard extends StatelessWidget {
   final String title;
   final DateTime date;
@@ -24,23 +24,52 @@ class AnniversaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: theme.colorScheme.primary.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Row(
         children: [
+          // 渐变装饰条
+          Container(
+            width: 4,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  theme.colorScheme.primary,
+                  theme.colorScheme.primary.withOpacity(0.3),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 12),
           Container(
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  theme.colorScheme.primary.withOpacity(0.15),
+                  theme.colorScheme.primary.withOpacity(0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Center(
               child: Text(
@@ -69,17 +98,25 @@ class AnniversaryCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
-          Text(
-            DateFormat('MM/dd').format(date),
-            style: TextStyle(
-              fontSize: 14,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              DateFormat('MM/dd').format(date),
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

@@ -64,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: 60),
 
-                  // Logo 动画心形
+                  // Logo 动画心形 — 弹入 + 持续呼吸脉冲
                   TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0.0, end: 1.0),
                     duration: const Duration(milliseconds: 800),
@@ -75,33 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: child,
                       );
                     },
-                    child: Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            theme.colorScheme.primary.withValues(alpha: 0.8),
-                            theme.colorScheme.primary,
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.25),
-                            blurRadius: 16,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.favorite_rounded,
-                        size: 42,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: _BreathingLogo(color: theme.colorScheme.primary),
                   ),
 
                   const SizedBox(height: 20),
@@ -338,6 +312,82 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 持续呼吸脉冲 Logo
+class _BreathingLogo extends StatefulWidget {
+  final Color color;
+  const _BreathingLogo({required this.color});
+
+  @override
+  State<_BreathingLogo> createState() => _BreathingLogoState();
+}
+
+class _BreathingLogoState extends State<_BreathingLogo>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+  late Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 1.0, end: 1.06).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    _glow = Tween<double>(begin: 0.2, end: 0.4).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scale.value,
+          child: Container(
+            width: 90,
+            height: 90,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  widget.color.withOpacity(0.85),
+                  widget.color,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.color.withOpacity(_glow.value),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.favorite_rounded,
+              size: 42,
+              color: Colors.white,
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -40,9 +40,7 @@ class _AppRouter extends StatelessWidget {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         if (authProvider.isLoading) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return _buildBrandedLoading(context);
         }
 
         if (!authProvider.isLoggedIn) {
@@ -55,6 +53,76 @@ class _AppRouter extends StatelessWidget {
 
         return const HomeScreen();
       },
+    );
+  }
+
+  /// 品牌化启动加载画面
+  Widget _buildBrandedLoading(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9F9FB),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Logo 心形 — 脉冲呼吸
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) {
+                return Transform.scale(scale: value, child: child);
+              },
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      theme.colorScheme.primary.withOpacity(0.85),
+                      theme.colorScheme.primary,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withOpacity(0.25),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.favorite_rounded,
+                  size: 36,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              '虫米',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 4,
+                color: Color(0xFF1C1C1E),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: theme.colorScheme.primary.withOpacity(0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

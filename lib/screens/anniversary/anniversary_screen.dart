@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:animate_do/animate_do.dart';
+import '../../widgets/animated_press_card.dart';
 
 /// 纪念日管理页面
 class AnniversaryScreen extends StatefulWidget {
@@ -109,12 +110,17 @@ class _AnniversaryScreenState extends State<AnniversaryScreen> {
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: theme.colorScheme.primary.withOpacity(0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
@@ -151,7 +157,7 @@ class _AnniversaryScreenState extends State<AnniversaryScreen> {
             shape: BoxShape.circle,
           ),
           todayDecoration: BoxDecoration(
-            color: theme.colorScheme.primary.withValues(alpha: 0.25),
+            color: theme.colorScheme.primary.withOpacity(0.2),
             shape: BoxShape.circle,
           ),
           defaultTextStyle: const TextStyle(fontSize: 13),
@@ -225,7 +231,7 @@ class _AnniversaryScreenState extends State<AnniversaryScreen> {
         final daysLeft = nextDate.difference(now).inDays;
 
         return FadeInUp(
-          duration: Duration(milliseconds: 300 + (index * 100)),
+          duration: Duration(milliseconds: 350 + (index * 80)),
           child: Dismissible(
             key: Key('anniversary_${item['title']}_$index'),
             direction: DismissDirection.endToStart,
@@ -235,87 +241,106 @@ class _AnniversaryScreenState extends State<AnniversaryScreen> {
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 color: Colors.red.shade400,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(Icons.delete, color: Colors.white),
+              child: const Icon(Icons.delete_rounded, color: Colors.white),
             ),
             onDismissed: (direction) {
               setState(() => _anniversaries.removeAt(index));
             },
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Center(
-                      child: Text(
-                        item['icon'] as String,
-                        style: const TextStyle(fontSize: 24),
+            child: AnimatedPressCard(
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    // Left gradient bar decoration
+                    Container(
+                      width: 4,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            theme.colorScheme.primary,
+                            theme.colorScheme.primary.withOpacity(0.3),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(width: 12),
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            theme.colorScheme.primary.withOpacity(0.15),
+                            theme.colorScheme.primary.withOpacity(0.05),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Center(
+                        child: Text(
+                          item['icon'] as String,
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item['title'] as String,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat('yyyy年MM月dd日').format(date),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: theme.colorScheme.onSurface.withOpacity(0.4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          item['title'] as String,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                          '还有',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurface.withOpacity(0.4),
                           ),
                         ),
-                        const SizedBox(height: 4),
                         Text(
-                          DateFormat('yyyy年MM月dd日').format(date),
+                          '$daysLeft 天',
                           style: TextStyle(
-                            fontSize: 13,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '还有',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                        ),
-                      ),
-                      Text(
-                        '$daysLeft 天',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -363,23 +388,39 @@ class _AnniversaryScreenState extends State<AnniversaryScreen> {
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
+                    runSpacing: 8,
                     children: _icons.map((icon) {
                       final isSelected = selectedIcon == icon;
                       return GestureDetector(
                         onTap: () => setModalState(() => selectedIcon = icon),
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
-                                : const Color(0xFFF2F2F7),
-                            borderRadius: BorderRadius.circular(12),
-                            border: isSelected
-                                ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
-                                : null,
+                        child: AnimatedScale(
+                          scale: isSelected ? 1.15 : 1.0,
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutBack,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                                  : const Color(0xFFF2F2F7),
+                              borderRadius: BorderRadius.circular(12),
+                              border: isSelected
+                                  ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
+                                  : null,
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : [],
+                            ),
+                            child: Center(child: Text(icon, style: const TextStyle(fontSize: 20))),
                           ),
-                          child: Center(child: Text(icon, style: const TextStyle(fontSize: 20))),
                         ),
                       );
                     }).toList(),

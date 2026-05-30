@@ -1,7 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// 屏幕发射爱心粒子上升特效 Overlay
+/// 屏幕发射爱心粒子上升特效 Overlay — 增强版
+/// 包含心形 + 星形混合粒子，带旋转和生命周期缩放
 class HeartOverlay {
   static void show(BuildContext context) {
     final overlayState = Overlay.of(context);
@@ -30,7 +31,7 @@ class _HeartOverlayWidget extends StatefulWidget {
 
 class _HeartOverlayWidgetState extends State<_HeartOverlayWidget> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  final List<_HeartParticle> _particles = [];
+  final List<_Particle> _particles = [];
   final math.Random _random = math.Random();
 
   @override
@@ -38,7 +39,7 @@ class _HeartOverlayWidgetState extends State<_HeartOverlayWidget> with SingleTic
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000), // 持续 2 秒
+      duration: const Duration(milliseconds: 2200),
     );
 
     _controller.addStatusListener((status) {
@@ -55,30 +56,36 @@ class _HeartOverlayWidgetState extends State<_HeartOverlayWidget> with SingleTic
     super.didChangeDependencies();
     if (_particles.isEmpty) {
       final size = MediaQuery.of(context).size;
-      // 生成 12-18 颗大小、颜色、摆动轨道随机的心形粒子
-      for (int i = 0; i < 16; i++) {
-        _particles.add(_HeartParticle(
-          startX: size.width / 2 + (_random.nextDouble() - 0.5) * 120, // 从底部中间附近散射
+      // 生成 22 颗混合粒子
+      for (int i = 0; i < 22; i++) {
+        final isHeart = _random.nextDouble() > 0.35; // 65% 心形, 35% 星形
+        _particles.add(_Particle(
+          startX: size.width / 2 + (_random.nextDouble() - 0.5) * 140,
           startY: size.height - 80,
-          size: 16.0 + _random.nextDouble() * 24.0, // 16px - 40px
-          speedY: 200.0 + _random.nextDouble() * 300.0, // 向上漂移速度
-          amplitude: 20.0 + _random.nextDouble() * 40.0, // 左右正弦摇摆幅度
-          frequency: 2.0 + _random.nextDouble() * 4.0, // 摇摆频率
-          phase: _random.nextDouble() * math.pi * 2, // 初始随机相位
-          color: _getRandomHeartColor(),
+          size: 14.0 + _random.nextDouble() * 26.0,
+          speedY: 180.0 + _random.nextDouble() * 320.0,
+          amplitude: 18.0 + _random.nextDouble() * 45.0,
+          frequency: 2.0 + _random.nextDouble() * 4.0,
+          phase: _random.nextDouble() * math.pi * 2,
+          rotation: _random.nextDouble() * math.pi * 2,
+          rotationSpeed: (_random.nextDouble() - 0.5) * 4.0,
+          color: _getRandomColor(),
+          isHeart: isHeart,
         ));
       }
     }
   }
 
-  Color _getRandomHeartColor() {
+  Color _getRandomColor() {
     final colors = [
-      const Color(0xFFFF2D55), // 苹果粉红
-      const Color(0xFFFF5E7E), // 暖粉色
-      const Color(0xFFFF85A1), // 柔粉色
-      const Color(0xFFFFB3C6), // 亮樱花粉
-      const Color(0xFFFFC0CB), // 标准粉红
-      const Color(0xFFFF0844), // 热烈红
+      const Color(0xFFFF2D55),
+      const Color(0xFFFF5E7E),
+      const Color(0xFFFF85A1),
+      const Color(0xFFFFB3C6),
+      const Color(0xFFFFC0CB),
+      const Color(0xFFFF0844),
+      const Color(0xFFFFD700), // 金色星形
+      const Color(0xFFFFA6C9),
     ];
     return colors[_random.nextInt(colors.length)];
   }
@@ -98,29 +105,29 @@ class _HeartOverlayWidgetState extends State<_HeartOverlayWidget> with SingleTic
         return IgnorePointer(
           child: Stack(
             children: _particles.map((particle) {
-              // 随进度向上漂移
               final currentY = particle.startY - (particle.speedY * progress);
-              // 正弦摆动公式
               final currentX = particle.startX + 
                   math.sin(progress * particle.frequency + particle.phase) * particle.amplitude;
               
-              // 渐隐策略：前 15% 渐现，后 30% 渐隐
+              // 渐隐：前 12% 渐现，后 25% 渐隐
               double opacity = 1.0;
-              if (progress < 0.15) {
-                opacity = progress / 0.15;
-              } else if (progress > 0.7) {
-                opacity = (1.0 - progress) / 0.3;
+              if (progress < 0.12) {
+                opacity = progress / 0.12;
+              } else if (progress > 0.75) {
+                opacity = (1.0 - progress) / 0.25;
               }
               opacity = opacity.clamp(0.0, 1.0);
 
-              // 缩放策略：前 15% 从 0 放大，后 20% 缩小至 0
+              // 生命周期缩放：弹入 → 稳定 → 缩小消失
               double scale = 1.0;
-              if (progress < 0.15) {
-                scale = progress / 0.15;
+              if (progress < 0.12) {
+                scale = Curves.easeOutBack.transform(progress / 0.12);
               } else if (progress > 0.8) {
-                scale = (1.0 - progress) / 0.2;
+                scale = Curves.easeIn.transform((1.0 - progress) / 0.2);
               }
-              scale = scale.clamp(0.0, 1.0);
+              scale = scale.clamp(0.0, 1.5);
+
+              final currentRotation = particle.rotation + particle.rotationSpeed * progress;
 
               return Positioned(
                 left: currentX - (particle.size / 2),
@@ -129,17 +136,22 @@ class _HeartOverlayWidgetState extends State<_HeartOverlayWidget> with SingleTic
                   opacity: opacity,
                   child: Transform.scale(
                     scale: scale,
-                    child: Icon(
-                      Icons.favorite_rounded,
-                      size: particle.size,
-                      color: particle.color,
-                      shadows: [
-                        Shadow(
-                          color: particle.color.withOpacity(0.4),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        )
-                      ],
+                    child: Transform.rotate(
+                      angle: currentRotation,
+                      child: Icon(
+                        particle.isHeart 
+                            ? Icons.favorite_rounded 
+                            : Icons.star_rounded,
+                        size: particle.size,
+                        color: particle.color,
+                        shadows: [
+                          Shadow(
+                            color: particle.color.withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -152,7 +164,7 @@ class _HeartOverlayWidgetState extends State<_HeartOverlayWidget> with SingleTic
   }
 }
 
-class _HeartParticle {
+class _Particle {
   final double startX;
   final double startY;
   final double size;
@@ -160,9 +172,12 @@ class _HeartParticle {
   final double amplitude;
   final double frequency;
   final double phase;
+  final double rotation;
+  final double rotationSpeed;
   final Color color;
+  final bool isHeart;
 
-  _HeartParticle({
+  _Particle({
     required this.startX,
     required this.startY,
     required this.size,
@@ -170,6 +185,9 @@ class _HeartParticle {
     required this.amplitude,
     required this.frequency,
     required this.phase,
+    required this.rotation,
+    required this.rotationSpeed,
     required this.color,
+    required this.isHeart,
   });
 }

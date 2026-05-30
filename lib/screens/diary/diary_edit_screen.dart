@@ -257,32 +257,49 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
         final isSelected = selectedEmoji == item['emoji']!;
         return GestureDetector(
           onTap: () => onSelected(item['emoji']!, item['text']!),
-          child: Container(
-            width: 56,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                  : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: isSelected
-                  ? Border.all(color: theme.colorScheme.primary, width: 2)
-                  : Border.all(color: const Color(0xFFE5E5EA)),
-            ),
-            child: Column(
-              children: [
-                Text(item['emoji']!, style: const TextStyle(fontSize: 22)),
-                const SizedBox(height: 2),
-                Text(
-                  item['text']!,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isSelected
-                        ? theme.colorScheme.primary
-                        : const Color(0xFF8E8E93),
+          child: AnimatedScale(
+            scale: isSelected ? 1.1 : 1.0,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutBack,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOutCubic,
+              width: 56,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? theme.colorScheme.primary.withOpacity(0.15)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: isSelected
+                    ? Border.all(color: theme.colorScheme.primary, width: 2)
+                    : Border.all(color: const Color(0xFFE5E5EA)),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: theme.colorScheme.primary.withOpacity(0.15),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Column(
+                children: [
+                  Text(item['emoji']!, style: const TextStyle(fontSize: 22)),
+                  const SizedBox(height: 2),
+                  Text(
+                    item['text']!,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isSelected
+                          ? theme.colorScheme.primary
+                          : const Color(0xFF8E8E93),
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

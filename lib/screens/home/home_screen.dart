@@ -1,8 +1,11 @@
 import 'dart:ui';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/anniversary_card.dart';
 import '../../widgets/heart_overlay.dart';
+import '../../widgets/pulse_animation.dart';
+import '../../utils/page_transitions.dart';
 import '../diary/diary_list_screen.dart';
 import '../photo/photo_wall_screen.dart';
 import '../anniversary/anniversary_screen.dart';
@@ -88,23 +91,31 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+            BoxShadow(
+              color: theme.colorScheme.primary.withOpacity(0.05),
+              blurRadius: 40,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
+            filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
             child: Container(
-              height: 64,
-              color: Colors.white.withOpacity(0.85),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              height: 68,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.88),
+                border: Border.all(color: Colors.white.withOpacity(0.5), width: 0.5),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -146,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// 底部导航栏弹性缩放项
+/// 底部导航栏弹性缩放项 — 带胶囊形背景指示器
 class _AnimatedNavBarItem extends StatefulWidget {
   final IconData icon;
   final String label;
@@ -175,13 +186,13 @@ class _AnimatedNavBarItemState extends State<_AnimatedNavBarItem> with SingleTic
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 400),
     );
     _scaleAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.8), weight: 30),
-      TweenSequenceItem(tween: Tween(begin: 0.8, end: 1.25), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: 1.25, end: 1.0), weight: 30),
-    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.75), weight: 25),
+      TweenSequenceItem(tween: Tween(begin: 0.75, end: 1.2), weight: 45),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 30),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic));
   }
 
   @override
@@ -206,9 +217,18 @@ class _AnimatedNavBarItemState extends State<_AnimatedNavBarItem> with SingleTic
         widget.onTap();
       },
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 60,
-        height: 60,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOutCubic,
+        width: widget.isActive ? 72 : 56,
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        decoration: BoxDecoration(
+          color: widget.isActive
+              ? widget.activeColor.withOpacity(0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -216,18 +236,19 @@ class _AnimatedNavBarItemState extends State<_AnimatedNavBarItem> with SingleTic
               scale: _scaleAnimation,
               child: Icon(
                 widget.icon,
-                color: widget.isActive ? widget.activeColor : const Color(0xFF8E8E93),
-                size: 24,
+                color: widget.isActive ? widget.activeColor : const Color(0xFFAEAEB2),
+                size: widget.isActive ? 24 : 22,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              widget.label,
+            const SizedBox(height: 2),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 250),
               style: TextStyle(
-                fontSize: 10,
-                color: widget.isActive ? widget.activeColor : const Color(0xFF8E8E93),
-                fontWeight: widget.isActive ? FontWeight.bold : FontWeight.normal,
+                fontSize: widget.isActive ? 10 : 9,
+                color: widget.isActive ? widget.activeColor : const Color(0xFFAEAEB2),
+                fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
               ),
+              child: Text(widget.label),
             ),
           ],
         ),
@@ -244,7 +265,7 @@ class _HomeContent extends StatefulWidget {
   State<_HomeContent> createState() => _HomeContentState();
 }
 
-class _HomeContentState extends State<_HomeContent> {
+class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixin {
   int _loveClicks = 0;
   int _loveDays = 0;
   int _firstMetDays = 0;
@@ -253,10 +274,28 @@ class _HomeContentState extends State<_HomeContent> {
   String _periodStatusTip = '';
   Color _periodStatusColor = Colors.grey;
 
+  // 滚动数字动画
+  late AnimationController _countUpController;
+  late Animation<double> _countUpAnimation;
+
   @override
   void initState() {
     super.initState();
+    _countUpController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _countUpAnimation = CurvedAnimation(
+      parent: _countUpController,
+      curve: Curves.easeOutCubic,
+    );
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _countUpController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -339,6 +378,7 @@ class _HomeContentState extends State<_HomeContent> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+        _countUpController.forward(from: 0.0);
       }
     }
   }
@@ -484,23 +524,27 @@ class _HomeContentState extends State<_HomeContent> {
             children: [
               Positioned(
                 left: 0,
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFD6E0),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text('👩', style: TextStyle(fontSize: 22)),
+                child: GlowPulse(
+                  glowColor: const Color(0xFFFFD6E0),
+                  glowRadius: 12,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD6E0),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: const Center(
+                      child: Text('👩', style: TextStyle(fontSize: 22)),
+                    ),
                   ),
                 ),
               ),
@@ -528,23 +572,27 @@ class _HomeContentState extends State<_HomeContent> {
               ),
               Positioned(
                 left: 42,
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD6E4FF),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text('👦', style: TextStyle(fontSize: 22)),
+                child: GlowPulse(
+                  glowColor: const Color(0xFFD6E4FF),
+                  glowRadius: 12,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD6E4FF),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: const Center(
+                      child: Text('👦', style: TextStyle(fontSize: 22)),
+                    ),
                   ),
                 ),
               ),
@@ -634,7 +682,7 @@ class _HomeContentState extends State<_HomeContent> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              FadeScaleRoute(page: const SettingsScreen()),
             );
           },
           icon: const Icon(Icons.settings_rounded),
@@ -644,25 +692,34 @@ class _HomeContentState extends State<_HomeContent> {
     );
   }
 
-  /// 恋爱天数统计看板卡片
+  /// 恋爱天数统计看板卡片 — 带数字滚动动画
   Widget _buildLoveDashboard(ThemeData theme) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            theme.colorScheme.primary.withValues(alpha: 0.09),
-            theme.colorScheme.primary.withValues(alpha: 0.02),
+            theme.colorScheme.primary.withOpacity(0.12),
+            theme.colorScheme.primary.withOpacity(0.04),
+            theme.colorScheme.primary.withOpacity(0.08),
           ],
+          stops: const [0.0, 0.5, 1.0],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.15),
+          color: theme.colorScheme.primary.withOpacity(0.18),
           width: 1.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -670,36 +727,51 @@ class _HomeContentState extends State<_HomeContent> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: theme.colorScheme.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Text(
-                  '我们相恋了',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.favorite_rounded, size: 12, color: theme.colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      '我们相恋了',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.primary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(
-                '$_loveDays',
-                style: TextStyle(
-                  fontSize: 54,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -1,
-                  color: theme.colorScheme.onSurface,
-                ),
+              AnimatedBuilder(
+                animation: _countUpAnimation,
+                builder: (context, child) {
+                  final displayDays = (_loveDays * _countUpAnimation.value).round();
+                  return Text(
+                    '$displayDays',
+                    style: TextStyle(
+                      fontSize: 56,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -2,
+                      color: theme.colorScheme.onSurface,
+                      height: 1.0,
+                    ),
+                  );
+                },
               ),
               const SizedBox(width: 6),
               const Text(
@@ -712,14 +784,20 @@ class _HomeContentState extends State<_HomeContent> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            '初识至今已经 $_firstMetDays 天 🌟',
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF8E8E93),
-              fontWeight: FontWeight.w600,
-            ),
+          const SizedBox(height: 10),
+          AnimatedBuilder(
+            animation: _countUpAnimation,
+            builder: (context, child) {
+              final displayMetDays = (_firstMetDays * _countUpAnimation.value).round();
+              return Text(
+                '初识至今已经 $displayMetDays 天 🌟',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF8E8E93),
+                  fontWeight: FontWeight.w600,
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -770,7 +848,7 @@ class _HomeContentState extends State<_HomeContent> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const ChatScreen()),
+                      FadeScaleRoute(page: const ChatScreen()),
                     );
                   },
                 ),
@@ -807,7 +885,7 @@ class _HomeContentState extends State<_HomeContent> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const WishScreen()),
+                      FadeScaleRoute(page: const WishScreen()),
                     );
                   },
                 ),
@@ -823,7 +901,7 @@ class _HomeContentState extends State<_HomeContent> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const AnniversaryScreen()),
+                FadeScaleRoute(page: const AnniversaryScreen()),
               );
             },
             child: AnniversaryCard(
@@ -837,7 +915,7 @@ class _HomeContentState extends State<_HomeContent> {
     );
   }
 
-  /// 卡片基本模板
+  /// 卡片基本模板 — 带按下缩放反馈
   Widget _buildInfoCard({
     required String title,
     required Color color,
@@ -845,7 +923,7 @@ class _HomeContentState extends State<_HomeContent> {
     required String content,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return _PressableCard(
       onTap: onTap,
       child: Container(
         height: 130,
@@ -855,9 +933,14 @@ class _HomeContentState extends State<_HomeContent> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+              color: color.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 6,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
@@ -869,7 +952,7 @@ class _HomeContentState extends State<_HomeContent> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
+                    color: color.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(icon, size: 14, color: color),
@@ -914,7 +997,7 @@ class _HomeContentState extends State<_HomeContent> {
   }) {
     final progress = completed / total;
 
-    return GestureDetector(
+    return _PressableCard(
       onTap: onTap,
       child: Container(
         height: 130,
@@ -924,9 +1007,9 @@ class _HomeContentState extends State<_HomeContent> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+              color: color.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -980,7 +1063,7 @@ class _HomeContentState extends State<_HomeContent> {
     );
   }
 
-  /// 每日寄语卡片 (Love Oath/Vows)
+  /// 每日寄语卡片 (Love Oath/Vows) — 带渐变装饰条
   Widget _buildLoveVowCard(ThemeData theme) {
     return Container(
       width: double.infinity,
@@ -990,43 +1073,58 @@ class _HomeContentState extends State<_HomeContent> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('💬', style: TextStyle(fontSize: 20)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '每日一签',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF8E8E93),
-                  ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.primary.withOpacity(0.3),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '“爱不是寻找一个完美的人，而是学会用完美的眼光去欣赏一个不完美的人。”',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF1C1C1E),
-                    height: 1.4,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '每日一签',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    '“爱不是寻找一个完美的人，而是学会用完美的眼光去欣赏一个不完美的人。”',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF1C1C1E),
+                      height: 1.5,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1057,7 +1155,7 @@ class _CoupleContent extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const WishScreen()),
+                        FadeScaleRoute(page: const WishScreen()),
                       );
                     },
                   ),
@@ -1072,7 +1170,7 @@ class _CoupleContent extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const ChatScreen()),
+                        FadeScaleRoute(page: const ChatScreen()),
                       );
                     },
                   ),
@@ -1091,7 +1189,7 @@ class _CoupleContent extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const GameSelectScreen()),
+                        FadeScaleRoute(page: const GameSelectScreen()),
                       );
                     },
                   ),
@@ -1106,7 +1204,7 @@ class _CoupleContent extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const PeriodIntimacyScreen()),
+                        FadeScaleRoute(page: const PeriodIntimacyScreen()),
                       );
                     },
                   ),
@@ -1128,18 +1226,18 @@ class _CoupleContent extends StatelessWidget {
   }) {
     final theme = Theme.of(context);
 
-    return GestureDetector(
+    return _PressableCard(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+              color: theme.colorScheme.primary.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -1149,8 +1247,15 @@ class _CoupleContent extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    theme.colorScheme.primary.withOpacity(0.15),
+                    theme.colorScheme.primary.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(18),
               ),
               child: Icon(
                 icon,
@@ -1176,6 +1281,58 @@ class _CoupleContent extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 通用按下缩放卡片组件 (Inline)
+class _PressableCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+
+  const _PressableCard({required this.child, this.onTap});
+
+  @override
+  State<_PressableCard> createState() => _PressableCardState();
+}
+
+class _PressableCardState extends State<_PressableCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) {
+        _controller.reverse();
+        widget.onTap?.call();
+      },
+      onTapCancel: () => _controller.reverse(),
+      behavior: HitTestBehavior.opaque,
+      child: ScaleTransition(
+        scale: _scale,
+        child: widget.child,
       ),
     );
   }

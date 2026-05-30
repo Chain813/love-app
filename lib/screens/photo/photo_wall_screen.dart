@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../widgets/photo_grid.dart';
+import 'package:animate_do/animate_do.dart';
 
 /// 相册墙页面
 class PhotoWallScreen extends StatefulWidget {
@@ -74,10 +75,13 @@ class _PhotoWallScreenState extends State<PhotoWallScreen> {
       ),
       body: _imageUrls.isEmpty
           ? _buildEmptyState()
-          : PhotoGrid(
-              imageUrls: _imageUrls,
-              crossAxisCount: 2,
-              spacing: 12,
+          : FadeInUp(
+              duration: const Duration(milliseconds: 500),
+              child: PhotoGrid(
+                imageUrls: _imageUrls,
+                crossAxisCount: 2,
+                spacing: 12,
+              ),
             ),
     );
   }
@@ -85,37 +89,47 @@ class _PhotoWallScreenState extends State<PhotoWallScreen> {
   Widget _buildEmptyState() {
     final theme = Theme.of(context);
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.photo_library_rounded,
-            size: 72,
-            color: theme.colorScheme.primary.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            '还没有照片',
-            style: TextStyle(
-              fontSize: 18,
-              color: Color(0xFF8E8E93),
+      child: FadeInUp(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.9, end: 1.1),
+              duration: const Duration(milliseconds: 1500),
+              curve: Curves.easeInOut,
+              builder: (context, value, child) {
+                return Transform.scale(scale: value, child: child);
+              },
+              child: Icon(
+                Icons.photo_library_rounded,
+                size: 72,
+                color: theme.colorScheme.primary.withOpacity(0.3),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '记录你们在一起的每一个瞬间',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFFC7C7CC),
+            const SizedBox(height: 16),
+            const Text(
+              '还没有照片',
+              style: TextStyle(
+                fontSize: 18,
+                color: Color(0xFF8E8E93),
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _pickImage,
-            icon: const Icon(Icons.add_a_photo),
-            label: const Text('上传第一张照片'),
-          ),
-        ],
+            const SizedBox(height: 8),
+            const Text(
+              '记录你们在一起的每一个瞬间',
+              style: TextStyle(
+                fontSize: 14,
+                color: Color(0xFFC7C7CC),
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _pickImage,
+              icon: const Icon(Icons.add_a_photo),
+              label: const Text('上传第一张照片'),
+            ),
+          ],
+        ),
       ),
     );
   }
