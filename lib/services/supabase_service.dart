@@ -120,11 +120,19 @@ class SupabaseService {
           };
 
           final createProfileUrl = Uri.parse('$_baseUrl/rest/v1/Profile');
-          await http.post(
+          final createProfileRes = await http.post(
             createProfileUrl,
             headers: _headers,
             body: jsonEncode(profileBody),
           );
+
+          if (createProfileRes.statusCode != 200 && createProfileRes.statusCode != 201) {
+            final errorBody = createProfileRes.body;
+            if (errorBody.contains('row-level security') || errorBody.contains('42501') || createProfileRes.statusCode == 401) {
+              throw Exception('创建公开资料失败：数据库未关闭 Profile 表的行级安全策略（RLS）。请在 Supabase 的 SQL Editor 中运行以下语句以关闭安全策略：\n\nALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;\n\n然后再试一次。');
+            }
+            throw Exception('创建公开资料 Profile 失败，错误码: ${createProfileRes.statusCode}，详情: $errorBody');
+          }
 
           final Map<String, dynamic> finalUser = {
             ...profileBody,
@@ -135,7 +143,11 @@ class SupabaseService {
           return finalUser;
         } else {
           final errorData = jsonDecode(signupRes.body);
-          throw Exception(errorData['msg'] ?? errorData['error_description'] ?? '注册失败，请重试');
+          final String msg = errorData['msg'] ?? errorData['error_description'] ?? errorData['message'] ?? '注册失败，请重试';
+          if (msg.contains('already registered') || msg.contains('already exists') || msg.contains('user_already_exists')) {
+            throw Exception('登录/注册失败：用户已存在，但由于数据库启用了行级安全策略（RLS），系统无法读取您的公开资料。请在 Supabase 的 SQL Editor 中执行以下语句以关闭安全策略：\n\nALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;\n\n然后再试一次。');
+          }
+          throw Exception(msg);
         }
       }
     } catch (e) {
@@ -259,7 +271,7 @@ class SupabaseService {
 
       final List results = jsonDecode(response.body);
       if (results.isEmpty) {
-        throw Exception('邀请码无效，请确认对方邀请码是否正确');
+        throw Exception('邀请码无效，请确认对方邀请码是否正确。\n提示：若确定邀请码无误，可能是由于您的数据库启用了行级安全策略（RLS）导致无法查询数据，请在 Supabase 的 SQL Editor 中执行建表脚本底部的 DISABLE ROW LEVEL SECURITY 语句，然后再试。');
       }
 
       final partnerUser = results.first;
@@ -300,7 +312,7 @@ class SupabaseService {
       if (createResponse.statusCode == 201 || createResponse.statusCode == 200) {
         // 更新两人的 Profile
         final updatePartnerUrl = Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$partnerId');
-        await http.patch(
+        final updatePartnerRes = await http.patch(
           updatePartnerUrl,
           headers: _headers,
           body: jsonEncode({
@@ -309,9 +321,16 @@ class SupabaseService {
             'partner_id': currentUserId,
           }),
         );
+        if (updatePartnerRes.statusCode != 200 && updatePartnerRes.statusCode != 204) {
+          final errorBody = updatePartnerRes.body;
+          if (errorBody.contains('row-level security') || errorBody.contains('42501') || updatePartnerRes.statusCode == 401) {
+            throw Exception('更新对方资料失败：数据库未关闭 Profile 表的行级安全策略（RLS）。请在 SQL Editor 执行：\nALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;');
+          }
+          throw Exception('更新对方公开资料失败，状态码: ${updatePartnerRes.statusCode}，详情: $errorBody');
+        }
 
         final updateSelfUrl = Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$currentUserId');
-        await http.patch(
+        final updateSelfRes = await http.patch(
           updateSelfUrl,
           headers: _headers,
           body: jsonEncode({
@@ -320,11 +339,22 @@ class SupabaseService {
             'partner_id': partnerId,
           }),
         );
+        if (updateSelfRes.statusCode != 200 && updateSelfRes.statusCode != 204) {
+          final errorBody = updateSelfRes.body;
+          if (errorBody.contains('row-level security') || errorBody.contains('42501') || updateSelfRes.statusCode == 401) {
+            throw Exception('更新个人资料失败：数据库未关闭 Profile 表的行级安全策略（RLS）。请在 SQL Editor 执行：\nALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;');
+          }
+          throw Exception('更新个人公开资料失败，状态码: ${updateSelfRes.statusCode}，详情: $errorBody');
+        }
 
         // 成功配对后更新本地状态
         await checkPairStatus();
       } else {
-        throw Exception('创建关系失败，服务器返回码: ${createResponse.statusCode}');
+        final errorBody = createResponse.body;
+        if (errorBody.contains('row-level security') || errorBody.contains('42501') || createResponse.statusCode == 401) {
+          throw Exception('创建配对关系失败：数据库未关闭 CoupleRelation 表的行级安全策略（RLS）。请在 SQL Editor 执行：\nALTER TABLE "CoupleRelation" DISABLE ROW LEVEL SECURITY;');
+        }
+        throw Exception('创建关系失败，服务器返回码: ${createResponse.statusCode}，详情: $errorBody');
       }
     } catch (e) {
       print("pairWithInviteCode error: $e");
