@@ -30,16 +30,16 @@ class SupabaseService {
     'Prefer': 'return=representation',
   });
 
-  /// 注册或登录
+  /// 注册或登录（邮箱验证模式）
   static Future<Map<String, dynamic>> registerOrLogin(
-      String username, String password) async {
-    final sanitizedEmail = '${username.trim().toLowerCase()}@chongmi.com';
-    
+      String email, String password) async {
+    final cleanEmail = email.trim().toLowerCase();
+
     try {
-      // 1. 查询用户 Profile 是否已存在
-      final profileUrl = Uri.parse('$_baseUrl/rest/v1/Profile?username=eq.${Uri.encodeComponent(username.trim())}');
+      // 1. 查询用户 Profile 是否已存在（通过 email）
+      final profileUrl = Uri.parse('$_baseUrl/rest/v1/Profile?email=eq.${Uri.encodeComponent(cleanEmail)}');
       final profileRes = await http.get(profileUrl, headers: _headers);
-      
+
       bool userExists = false;
       Map<String, dynamic>? existingProfile;
       if (profileRes.statusCode == 200) {
@@ -51,13 +51,13 @@ class SupabaseService {
       }
 
       if (userExists && existingProfile != null) {
-        // 2. 用户存在，直接登录
+        // 2. 用户存在，尝试登录
         final loginUrl = Uri.parse('$_baseUrl/auth/v1/token?grant_type=password');
         final loginRes = await http.post(
           loginUrl,
           headers: _headers,
           body: jsonEncode({
-            'email': sanitizedEmail,
+            'email': cleanEmail,
             'password': password,
           }),
         );
@@ -65,11 +65,12 @@ class SupabaseService {
         if (loginRes.statusCode == 200) {
           final loginData = jsonDecode(loginRes.body);
           final sessionToken = loginData['access_token'];
-          
+
           final Map<String, dynamic> finalUser = {
             'objectId': existingProfile['objectId'],
-            'username': username,
-            'nickname': existingProfile['nickname'] ?? username,
+            'email': cleanEmail,
+            'username': existingProfile['username'] ?? cleanEmail,
+            'nickname': existingProfile['nickname'] ?? cleanEmail.split('@').first,
             'invite_code': existingProfile['invite_code'],
             'status': existingProfile['status'] ?? 'single',
             'gender': existingProfile['gender'] ?? 'male',
@@ -82,7 +83,16 @@ class SupabaseService {
           return finalUser;
         } else {
           final errorData = jsonDecode(loginRes.body);
-          throw Exception(errorData['error_description'] ?? errorData['msg'] ?? '登录失败，请检查密码');
+          final errorMsg = errorData['error_description'] ?? errorData['msg'] ?? '';
+
+          // 邮箱未验证
+          if (errorMsg.contains('Email not confirmed') ||
+              errorMsg.contains('email_not_confirmed') ||
+              errorData['error'] == 'invalid_grant' && errorMsg.contains('confirm')) {
+            throw Exception('邮箱尚未验证，请先点击邮件中的验证链接后再登录。');
+          }
+
+          throw Exception(errorMsg.isNotEmpty ? errorMsg : '登录失败，请检查邮箱和密码');
         }
       } else {
         // 3. 用户不存在，注册新账号
@@ -104,7 +114,7 @@ class SupabaseService {
           signupUrl,
           headers: _headers,
           body: jsonEncode({
-            'email': sanitizedEmail,
+            'email': cleanEmail,
             'password': password,
           }),
         );
@@ -112,7 +122,6 @@ class SupabaseService {
         if (signupRes.statusCode == 200 || signupRes.statusCode == 201) {
           final signupData = jsonDecode(signupRes.body);
           final userId = signupData['user']?['id'] ?? signupData['id'];
-          final sessionToken = signupData['access_token'] ?? '';
 
           if (userId == null) {
             throw Exception('注册响应异常，未获取到用户ID');
@@ -121,8 +130,9 @@ class SupabaseService {
           // 4. 创建 Profile 表记录
           final profileBody = {
             'objectId': userId,
-            'username': username,
-            'nickname': username,
+            'email': cleanEmail,
+            'username': cleanEmail.split('@').first,
+            'nickname': cleanEmail.split('@').first,
             'invite_code': inviteCode,
             'status': 'single',
             'gender': 'male',
@@ -146,34 +156,29 @@ class SupabaseService {
             throw Exception('创建公开资料 Profile 失败，错误码: ${createProfileRes.statusCode}，详情: $errorBody');
           }
 
-          final Map<String, dynamic> finalUser = {
-            ...profileBody,
-            'sessionToken': sessionToken,
-          };
-
-          await _saveUserToLocal(finalUser);
-          return finalUser;
+          // 注册成功，提示验证邮箱（不自动登录）
+          throw Exception('注册成功！请前往 $cleanEmail 查收验证邮件，点击链接完成验证后再登录。');
         } else {
           final errorData = jsonDecode(signupRes.body);
           final String msg = errorData['msg'] ?? errorData['error_description'] ?? errorData['message'] ?? '注册失败，请重试';
           if (msg.contains('already registered') || msg.contains('already exists') || msg.contains('user_already_exists')) {
-            throw Exception(
-              '该账号已注册，但系统无法读取您的公开资料（可能是 RLS 未关闭）。\n\n'
-              '$_rlsFixHint'
-            );
+            throw Exception('该邮箱已注册，请直接登录。');
           }
           throw Exception(msg);
         }
       }
     } catch (e) {
-      // 区分 RLS 错误和真正的网络错误：RLS 错误不应静默回退到缓存
       final errStr = e.toString();
       if (errStr.contains('RLS') || errStr.contains('行级安全') || errStr.contains('安全策略')) {
-        rethrow; // RLS 错误直接抛出，不回退缓存
+        rethrow;
+      }
+      // 验证邮箱的提示不算错误，直接抛出
+      if (errStr.contains('验证邮件') || errStr.contains('尚未验证')) {
+        rethrow;
       }
       print("Supabase Auth failed. Check local cache: $e");
       final currentCached = await getCurrentUser();
-      if (currentCached != null && currentCached['username'] == username) {
+      if (currentCached != null && currentCached['email'] == cleanEmail) {
         return currentCached;
       }
       throw Exception('无法连接至 Supabase 服务：$e');

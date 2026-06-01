@@ -12,28 +12,28 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin(BuildContext context) async {
     if (!_formKey.currentState!.validate()) return;
-    
-    final username = _usernameController.text.trim();
+
+    final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    final success = await context.read<AuthProvider>().loginWithPassword(username, password);
+    final success = await context.read<AuthProvider>().loginWithPassword(email, password);
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('欢迎回来，$username ✨'),
+          content: Text('欢迎回来 ✨'),
           backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
@@ -134,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            '若账号不存在，系统将自动为您注册账号。',
+                            '首次登录将自动注册，需验证邮箱。',
                             style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFF8E8E93),
@@ -142,12 +142,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 20),
 
-                          // 账号输入
+                          // 邮箱输入
                           TextFormField(
-                            controller: _usernameController,
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              hintText: '账号',
-                              prefixIcon: const Icon(Icons.person_outline_rounded),
+                              hintText: '邮箱地址',
+                              prefixIcon: const Icon(Icons.email_outlined),
                               filled: true,
                               fillColor: const Color(0xFFF2F2F7),
                               border: OutlineInputBorder(
@@ -158,7 +159,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                  return '请输入账号';
+                                return '请输入邮箱';
+                              }
+                              if (!value.contains('@') || !value.contains('.')) {
+                                return '请输入有效的邮箱地址';
                               }
                               return null;
                             },
@@ -499,7 +503,7 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
     );
 
     // 模拟本地自动登录
-    await context.read<AuthProvider>().loginWithPassword('本地用户', '123456');
+    await context.read<AuthProvider>().loginWithPassword('local@chongmi.com', '123456');
   }
 
   String _getDbTypeName(DbType type) {
