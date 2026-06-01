@@ -431,4 +431,38 @@ class LocalDbService {
     }
     await box.put('list', list);
   }
+
+  // --- 本地定位操作 ---
+  static Future<void> updateLocation(double latitude, double longitude) async {
+    final user = await getCurrentUser();
+    if (user == null) return;
+
+    user['latitude'] = latitude;
+    user['longitude'] = longitude;
+    user['location_updated_at'] = DateTime.now().toIso8601String();
+
+    final box = await Hive.openBox('user');
+    await box.put('current_user', user);
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchAllLocations() async {
+    final user = await getCurrentUser();
+    if (user == null) return [];
+
+    // 本地模式返回自己的位置
+    final lat = user['latitude'];
+    final lng = user['longitude'];
+    if (lat == null || lng == null) return [];
+
+    return [
+      {
+        'objectId': user['objectId'],
+        'username': user['username'],
+        'nickname': user['nickname'],
+        'latitude': lat,
+        'longitude': lng,
+        'location_updated_at': user['location_updated_at'],
+      }
+    ];
+  }
 }

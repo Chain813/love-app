@@ -300,19 +300,33 @@ class _PairScreenState extends State<PairScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
+                    color: authProvider.error!.contains('RLS') || authProvider.error!.contains('安全策略')
+                        ? Colors.orange.shade50
+                        : Colors.red.shade50,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                      Icon(
+                        authProvider.error!.contains('RLS') || authProvider.error!.contains('安全策略')
+                            ? Icons.warning_amber_rounded
+                            : Icons.error_outline,
+                        color: authProvider.error!.contains('RLS') || authProvider.error!.contains('安全策略')
+                            ? Colors.orange
+                            : Colors.red,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
+                        child: SelectableText(
                           authProvider.error!,
-                          style: const TextStyle(
-                            color: Colors.red,
+                          style: TextStyle(
+                            color: authProvider.error!.contains('RLS') || authProvider.error!.contains('安全策略')
+                                ? Colors.orange.shade900
+                                : Colors.red,
                             fontSize: 14,
+                            height: 1.5,
                           ),
                         ),
                       ),

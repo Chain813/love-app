@@ -9,10 +9,11 @@
 ## ✨ 核心功能
 
 *   **🌸 恋爱日记**：记录每天的甜蜜时光，支持上传图片、设置天气、心情与专属标签。
-*   **🎈 心愿时光轴**：共同规划“100件恋爱小事”，标记完成状态与完成时间。
+*   **🎈 心愿时光轴**：共同规划”100件恋爱小事”，标记完成状态与完成时间。
 *   **📅 纪念日日历**：倒计时提醒重要纪念日，记录相爱天数，支持自定义精致卡片。
 *   **🌙 生理期关怀**：记录与预测伴侣生理周期，为另一半送上贴心关怀。
 *   **💓 亲密记**：记录亲密互动的评分、心情与私密日记。
+*   **📍 共享位置**：情侣双方实时共享位置，高德地图可视化展示，支持开发者管理面板查看所有用户位置。
 *   **🧪 多存储/同步引擎**：
     *   **Supabase 模式 (推荐)**：支持注册/登录与异地实时强数据同步。
     *   **坚果云 / WebDAV 模式**：通过私有云盘存储，双向多路归并去重算法同步。
@@ -158,7 +159,12 @@ CREATE TABLE "IntimacyLog" (
   "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
 );
 
--- 8. 关闭 RLS（安全策略），允许客户端通过公开 Anon Key 进行写入操作
+-- 8. 添加定位字段（可选，用于共享位置功能）
+ALTER TABLE "Profile" ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE "Profile" ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE "Profile" ADD COLUMN IF NOT EXISTS location_updated_at TIMESTAMP WITH TIME ZONE;
+
+-- 9. 关闭 RLS（安全策略），允许客户端通过公开 Anon Key 进行写入操作
 ALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;
 ALTER TABLE "CoupleRelation" DISABLE ROW LEVEL SECURITY;
 ALTER TABLE "Diary" DISABLE ROW LEVEL SECURITY;
@@ -167,6 +173,24 @@ ALTER TABLE "Anniversary" DISABLE ROW LEVEL SECURITY;
 ALTER TABLE "PeriodLog" DISABLE ROW LEVEL SECURITY;
 ALTER TABLE "IntimacyLog" DISABLE ROW LEVEL SECURITY;
 ```
+
+---
+
+## 📍 共享位置功能说明
+
+本应用支持情侣双方实时共享位置信息，使用高德地图瓦片 + 浏览器 Geolocation API 实现。
+
+### 功能特性
+- **权限请求**：用户首次进入时弹出权限说明弹窗，同意后调用系统定位权限
+- **情侣互看**：在「情侣互动 → 共享位置」中查看双方在地图上的实时位置
+- **坐标转换**：自动将 GPS 坐标（WGS-84）转换为高德坐标（GCJ-02），消除偏移
+- **自动同步**：每 5 分钟自动更新一次位置
+- **管理员面板**：在设置页面连续点击版本号 5 次，可查看所有用户位置
+
+### 隐私说明
+- 位置信息仅情侣双方可见，不会分享给第三方
+- 用户可随时在系统设置中关闭定位权限
+- 位置数据存储于 Supabase 数据库，受 RLS 安全策略保护
 
 ---
 

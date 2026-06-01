@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'config/theme.dart';
 import 'providers/theme_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/location_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/pair_screen.dart';
 import 'screens/home/home_screen.dart';
@@ -16,6 +17,7 @@ class ChongMiApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()..checkLoginStatus()),
+        ChangeNotifierProvider(create: (_) => LocationProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {

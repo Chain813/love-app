@@ -470,11 +470,52 @@ class LeanCloudService {
         );
     }
   }
-}
 
-/// ----------------------------------------------------
-/// 原 LeanCloud / TDS 服务真实底层实现
-/// ----------------------------------------------------
+  /// ----------------------------------------
+  /// 定位模块云同步
+  /// ----------------------------------------
+  static Future<void> updateLocation(double latitude, double longitude) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.updateLocation(latitude, longitude);
+      case DbType.webdav:
+        return; // WebDAV 不支持
+      case DbType.local:
+        return LocalDbService.updateLocation(latitude, longitude);
+      case DbType.leancloud:
+      default:
+        return; // LeanCloud 暂不支持
+    }
+  }
+
+  static Future<Map<String, dynamic>?> fetchPartnerLocation(String partnerId) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.fetchPartnerLocation(partnerId);
+      case DbType.webdav:
+        return null;
+      case DbType.local:
+        return null;
+      case DbType.leancloud:
+      default:
+        return null;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchAllLocations() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.fetchAllLocations();
+      case DbType.webdav:
+        return [];
+      case DbType.local:
+        return LocalDbService.fetchAllLocations();
+      case DbType.leancloud:
+      default:
+        return [];
+    }
+  }
+}
 class _LeanCloudRealImpl {
   static const String _baseUrl = AppConstants.leanCloudServerUrl;
   static const String _appId = AppConstants.leanCloudAppId;

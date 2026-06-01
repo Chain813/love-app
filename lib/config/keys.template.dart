@@ -9,4 +9,7 @@ class AppKeys {
   // Supabase 配置
   static const String supabaseUrl = 'YOUR_SUPABASE_URL';
   static const String supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+
+  // 高德地图配置（Web端 JS API Key）
+  static const String amapWebKey = 'YOUR_AMAP_WEB_KEY';
 }

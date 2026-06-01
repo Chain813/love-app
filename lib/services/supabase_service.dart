@@ -78,7 +78,7 @@ class SupabaseService {
       } else {
         // 3. 用户不存在，注册新账号
         final signupUrl = Uri.parse('$_baseUrl/auth/v1/signup');
-        
+
         // 循环生成唯一的邀请码
         String inviteCode = _generateInviteCode();
         bool isUnique = false;
@@ -129,7 +129,10 @@ class SupabaseService {
           if (createProfileRes.statusCode != 200 && createProfileRes.statusCode != 201) {
             final errorBody = createProfileRes.body;
             if (errorBody.contains('row-level security') || errorBody.contains('42501') || createProfileRes.statusCode == 401) {
-              throw Exception('创建公开资料失败：数据库未关闭 Profile 表的行级安全策略（RLS）。请在 Supabase 的 SQL Editor 中运行以下语句以关闭安全策略：\n\nALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;\n\n然后再试一次。');
+              throw Exception(
+                '注册认证成功，但创建公开资料失败：数据库安全策略(RLS)阻止了写入。\n\n'
+                '$_rlsFixHint'
+              );
             }
             throw Exception('创建公开资料 Profile 失败，错误码: ${createProfileRes.statusCode}，详情: $errorBody');
           }
@@ -145,12 +148,20 @@ class SupabaseService {
           final errorData = jsonDecode(signupRes.body);
           final String msg = errorData['msg'] ?? errorData['error_description'] ?? errorData['message'] ?? '注册失败，请重试';
           if (msg.contains('already registered') || msg.contains('already exists') || msg.contains('user_already_exists')) {
-            throw Exception('登录/注册失败：用户已存在，但由于数据库启用了行级安全策略（RLS），系统无法读取您的公开资料。请在 Supabase 的 SQL Editor 中执行以下语句以关闭安全策略：\n\nALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;\n\n然后再试一次。');
+            throw Exception(
+              '该账号已注册，但系统无法读取您的公开资料（可能是 RLS 未关闭）。\n\n'
+              '$_rlsFixHint'
+            );
           }
           throw Exception(msg);
         }
       }
     } catch (e) {
+      // 区分 RLS 错误和真正的网络错误：RLS 错误不应静默回退到缓存
+      final errStr = e.toString();
+      if (errStr.contains('RLS') || errStr.contains('行级安全') || errStr.contains('安全策略')) {
+        rethrow; // RLS 错误直接抛出，不回退缓存
+      }
       print("Supabase Auth failed. Check local cache: $e");
       final currentCached = await getCurrentUser();
       if (currentCached != null && currentCached['username'] == username) {
@@ -257,6 +268,17 @@ class SupabaseService {
     final currentUser = await getCurrentUser();
     if (currentUser == null) throw Exception('请先登录');
 
+    // 自检：当前用户的 invite_code 是否存在（注册时 Profile 是否创建成功）
+    final myInviteCode = currentUser['invite_code'] as String?;
+    if (myInviteCode == null || myInviteCode.isEmpty) {
+      throw Exception(
+        '您的账号资料未成功写入数据库，无法进行配对。\n'
+        '这通常是因为数据库安全策略(RLS)阻止了注册时的资料创建。\n\n'
+        '$_rlsFixHint\n\n'
+        '修复后请退出账号并重新注册。'
+      );
+    }
+
     final currentUserId = currentUser['objectId'];
     final currentUserNickname = currentUser['nickname'] ?? currentUser['username'];
 
@@ -271,7 +293,14 @@ class SupabaseService {
 
       final List results = jsonDecode(response.body);
       if (results.isEmpty) {
-        throw Exception('邀请码无效，请确认对方邀请码是否正确。\n提示：若确定邀请码无误，可能是由于您的数据库启用了行级安全策略（RLS）导致无法查询数据，请在 Supabase 的 SQL Editor 中执行建表脚本底部的 DISABLE ROW LEVEL SECURITY 语句，然后再试。');
+        // 运行诊断：区分 RLS 拦截 vs 邀请码确实不存在
+        final diagnosis = await _diagnoseProfileAccess();
+        if (diagnosis != null) {
+          // RLS 或网络问题导致无法查询
+          throw Exception('$diagnosis\n\n$_rlsFixHint');
+        }
+        // Profile 表可正常访问，但确实没有这个邀请码
+        throw Exception('邀请码无效，请确认对方邀请码是否正确（共6位数字）。');
       }
 
       final partnerUser = results.first;
@@ -1028,6 +1057,66 @@ class SupabaseService {
     await box.put('list', list);
   }
 
+  // --- 定位同步 ---
+  static Future<void> updateLocation(double latitude, double longitude) async {
+    final user = await getCurrentUser();
+    if (user == null) return;
+
+    final userId = user['objectId'];
+
+    // 更新本地缓存
+    user['latitude'] = latitude;
+    user['longitude'] = longitude;
+    user['location_updated_at'] = DateTime.now().toIso8601String();
+    await _saveUserToLocal(user);
+
+    // 同步到云端
+    try {
+      final url = Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$userId');
+      await http.patch(
+        url,
+        headers: _headers,
+        body: jsonEncode({
+          'latitude': latitude,
+          'longitude': longitude,
+          'location_updated_at': DateTime.now().toIso8601String(),
+        }),
+      );
+    } catch (e) {
+      print("updateLocation cloud failure: $e");
+    }
+  }
+
+  static Future<Map<String, dynamic>?> fetchPartnerLocation(String partnerId) async {
+    try {
+      final url = Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$partnerId&select=nickname,latitude,longitude,location_updated_at');
+      final res = await http.get(url, headers: _headers);
+      if (res.statusCode == 200) {
+        final List list = jsonDecode(res.body);
+        if (list.isNotEmpty) {
+          return Map<String, dynamic>.from(list.first);
+        }
+      }
+    } catch (e) {
+      print("fetchPartnerLocation error: $e");
+    }
+    return null;
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchAllLocations() async {
+    try {
+      final url = Uri.parse('$_baseUrl/rest/v1/Profile?select=objectId,username,nickname,latitude,longitude,location_updated_at&order=location_updated_at.desc');
+      final res = await http.get(url, headers: _headers);
+      if (res.statusCode == 200) {
+        final List list = jsonDecode(res.body);
+        return list.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+    } catch (e) {
+      print("fetchAllLocations error: $e");
+    }
+    return [];
+  }
+
   // --- Helper ---
   static String _generateInviteCode() {
     final random = Random();
@@ -1045,4 +1134,38 @@ class SupabaseService {
     } catch (_) {}
     return false;
   }
+
+  /// 诊断 Profile 表是否可访问（检测 RLS 是否关闭）
+  /// 返回 null 表示正常可访问；返回非空字符串表示具体的错误描述。
+  static Future<String?> _diagnoseProfileAccess() async {
+    try {
+      final url = Uri.parse('$_baseUrl/rest/v1/Profile?select=objectId&limit=1');
+      final res = await http.get(url, headers: _headers);
+
+      if (res.statusCode == 401 || res.statusCode == 403) {
+        return '数据库安全策略(RLS)阻止了访问，状态码: ${res.statusCode}';
+      }
+
+      if (res.statusCode == 200) {
+        final body = res.body;
+        if (body.contains('row-level security') || body.contains('42501')) {
+          return '数据库安全策略(RLS)阻止了访问';
+        }
+        // 200 + 空数组 = 表可访问但无数据（正常）
+        // 200 + 有数据 = 一切正常
+        return null;
+      }
+
+      return 'Profile 表查询异常，状态码: ${res.statusCode}';
+    } catch (e) {
+      return '网络连接失败: $e';
+    }
+  }
+
+  /// RLS 修复指引文案
+  static const String _rlsFixHint =
+      '请在 Supabase 控制台的 SQL Editor 中执行以下语句关闭安全策略：\n\n'
+      'ALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;\n'
+      'ALTER TABLE "CoupleRelation" DISABLE ROW LEVEL SECURITY;\n\n'
+      '执行后请重新尝试注册/配对操作。';
 }

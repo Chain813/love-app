@@ -19,6 +19,7 @@ import 'package:like_button/like_button.dart';
 import '../../services/leancloud_service.dart';
 import '../auth/space_setup_screen.dart';
 import '../couple/period_intimacy_screen.dart';
+import '../location/couple_location_screen.dart';
 
 /// 首页 - 带底部导航栏
 class HomeScreen extends StatefulWidget {
@@ -1209,6 +1210,27 @@ class _CoupleContent extends StatelessWidget {
                     },
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildCard(
+                    context,
+                    icon: Icons.location_on_rounded,
+                    label: '共享位置',
+                    description: '看看TA在哪里',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        FadeScaleRoute(page: const CoupleLocationScreen()),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: SizedBox()), // 占位
               ],
             ),
           ],

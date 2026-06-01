@@ -7,6 +7,8 @@ import '../../services/db_config_service.dart';
 import '../../services/leancloud_service.dart';
 import '../auth/login_screen.dart';
 import 'package:animate_do/animate_do.dart';
+import '../admin/admin_panel_screen.dart';
+import '../../utils/page_transitions.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -16,6 +18,9 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  int _adminTapCount = 0;
+  DateTime? _lastAdminTapTime;
+
   String _getCurrentDbName() {
     switch (DbConfigService.currentDbType) {
       case DbType.supabase:
@@ -235,7 +240,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 32),
-          Center(child: Text('虫米 v1.0.0', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)))),
+          Center(
+            child: GestureDetector(
+              onTap: () {
+                final now = DateTime.now();
+                if (_lastAdminTapTime != null &&
+                    now.difference(_lastAdminTapTime!).inSeconds > 3) {
+                  _adminTapCount = 0;
+                }
+                _lastAdminTapTime = now;
+                _adminTapCount++;
+
+                if (_adminTapCount >= 5) {
+                  _adminTapCount = 0;
+                  Navigator.push(context, FadeScaleRoute(page: const AdminPanelScreen()));
+                }
+              },
+              child: Text('虫米 v1.0.0', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.3))),
+            ),
+          ),
         ],
       ),
     );

@@ -46,6 +46,11 @@ dependencies:
   fl_chart: ^0.68.0
   http: ^1.6.0
 
+  # 定位与地图
+  geolocator: ^13.0.2
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
