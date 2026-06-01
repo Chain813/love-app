@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:timeline_tile/timeline_tile.dart';
 import 'package:like_button/like_button.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:confetti/confetti.dart';
 import '../../../services/leancloud_service.dart';
+import '../../../widgets/shimmer_loading.dart';
 
 /// 心愿清单页面 - 包含联机云端数据交互
 class WishScreen extends StatefulWidget {
@@ -15,11 +18,19 @@ class WishScreen extends StatefulWidget {
 class _WishScreenState extends State<WishScreen> {
   List<Map<String, dynamic>> _wishes = [];
   bool _isLoading = true;
+  late ConfettiController _confettiController;
 
   @override
   void initState() {
     super.initState();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
     _loadWishes();
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadWishes() async {
@@ -58,6 +69,10 @@ class _WishScreenState extends State<WishScreen> {
           _wishes[idx]['completed'] = completed;
         }
       });
+      // 完成心愿时播放庆祝彩带
+      if (completed) {
+        _confettiController.play();
+      }
     } catch (e) {
       debugPrint('切换心愿状态失败: $e');
     }
@@ -93,80 +108,105 @@ class _WishScreenState extends State<WishScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadWishes,
-              child: _wishes.isEmpty
-                  ? FadeInUp(child: _buildEmptyState(theme))
-                  : SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 待完成标题与卡片列表
-                          if (pendingWishes.isNotEmpty) ...[
-                            FadeInLeft(
-                              duration: const Duration(milliseconds: 400),
-                              child: const Text(
-                                '甜蜜心愿待达成 ✨',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF8E8E93),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            ...pendingWishes.asMap().entries.map((entry) {
-                              final itemIndex = _wishes.indexOf(entry.value);
-                              return FadeInUp(
-                                duration: Duration(milliseconds: 300 + entry.key * 80),
-                                child: _buildPendingWishItem(entry.value, itemIndex, theme),
-                              );
-                            }),
-                          ],
-
-                          // 已完成标题与时间轴
-                          if (completedWishes.isNotEmpty) ...[
-                            const SizedBox(height: 32),
-                            FadeInLeft(
-                              duration: const Duration(milliseconds: 400),
-                              child: const Text(
-                                '已达成的回忆印记 🎉',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF8E8E93),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: completedWishes.length,
-                              itemBuilder: (context, idx) {
-                                final item = completedWishes[idx];
-                                final globalIndex = _wishes.indexOf(item);
-                                return FadeInUp(
-                                  duration: Duration(milliseconds: 300 + idx * 80),
-                                  child: _buildCompletedWishTimelineTile(
-                                    item,
-                                    globalIndex,
-                                    idx == 0,
-                                    idx == completedWishes.length - 1,
-                                    theme,
+      body: Stack(
+        children: [
+          _isLoading
+              ? ShimmerLoading.list(itemCount: 4, cardHeight: 80)
+              : RefreshIndicator(
+                  onRefresh: _loadWishes,
+                  child: _wishes.isEmpty
+                      ? FadeInUp(child: _buildEmptyState(theme))
+                      : SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 待完成标题与卡片列表
+                              if (pendingWishes.isNotEmpty) ...[
+                                FadeInLeft(
+                                  duration: const Duration(milliseconds: 400),
+                                  child: const Text(
+                                    '甜蜜心愿待达成 ✨',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF8E8E93),
+                                    ),
                                   ),
-                                );
-                              },
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                                ),
+                                const SizedBox(height: 12),
+                                ...pendingWishes.asMap().entries.map((entry) {
+                                  final itemIndex = _wishes.indexOf(entry.value);
+                                  return FadeInUp(
+                                    duration: Duration(milliseconds: 300 + entry.key * 80),
+                                    child: _buildPendingWishItem(entry.value, itemIndex, theme),
+                                  );
+                                }),
+                              ],
+
+                              // 已完成标题与时间轴
+                              if (completedWishes.isNotEmpty) ...[
+                                const SizedBox(height: 32),
+                                FadeInLeft(
+                                  duration: const Duration(milliseconds: 400),
+                                  child: const Text(
+                                    '已达成的回忆印记 🎉',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF8E8E93),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: completedWishes.length,
+                                  itemBuilder: (context, idx) {
+                                    final item = completedWishes[idx];
+                                    final globalIndex = _wishes.indexOf(item);
+                                    return FadeInUp(
+                                      duration: Duration(milliseconds: 300 + idx * 80),
+                                      child: _buildCompletedWishTimelineTile(
+                                        item,
+                                        globalIndex,
+                                        idx == 0,
+                                        idx == completedWishes.length - 1,
+                                        theme,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                ),
+          // 庆祝彩带
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirectionality: BlastDirectionality.explosive,
+              shouldLoop: false,
+              colors: const [
+                Colors.red,
+                Colors.pink,
+                Colors.orange,
+                Colors.yellow,
+                Colors.green,
+                Colors.blue,
+                Colors.purple,
+              ],
+              emissionFrequency: 0.05,
+              numberOfParticles: 30,
+              gravity: 0.1,
             ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -212,73 +252,86 @@ class _WishScreenState extends State<WishScreen> {
   Widget _buildPendingWishItem(Map<String, dynamic> wish, int globalIndex, ThemeData theme) {
     final objectId = wish['objectId'] as String;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+    return Slidable(
+      key: ValueKey(objectId),
+      endActionPane: ActionPane(
+        motion: const BehindMotion(),
+        children: [
+          SlidableAction(
+            onPressed: (_) => _deleteWish(objectId),
+            backgroundColor: Colors.redAccent,
+            foregroundColor: Colors.white,
+            icon: Icons.delete_rounded,
+            label: '删除',
+            borderRadius: BorderRadius.circular(16),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          // 粒子Checkbox
-          LikeButton(
-            size: 26,
-            circleColor: CircleColor(
-              start: const Color(0xFFFF2D55),
-              end: theme.colorScheme.primary,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
-            bubblesColor: BubblesColor(
-              dotPrimaryColor: theme.colorScheme.primary,
-              dotSecondaryColor: const Color(0xFFFF9500),
-            ),
-            isLiked: false,
-            likeBuilder: (bool isLiked) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: isLiked ? theme.colorScheme.primary : Colors.transparent,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isLiked ? theme.colorScheme.primary : const Color(0xFFC6C6C8),
-                    width: 2,
+          ],
+        ),
+        child: Row(
+          children: [
+            // 粒子Checkbox
+            LikeButton(
+              size: 26,
+              circleColor: CircleColor(
+                start: const Color(0xFFFF2D55),
+                end: theme.colorScheme.primary,
+              ),
+              bubblesColor: BubblesColor(
+                dotPrimaryColor: theme.colorScheme.primary,
+                dotSecondaryColor: const Color(0xFFFF9500),
+              ),
+              isLiked: false,
+              likeBuilder: (bool isLiked) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: isLiked ? theme.colorScheme.primary : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isLiked ? theme.colorScheme.primary : const Color(0xFFC6C6C8),
+                      width: 2,
+                    ),
                   ),
+                  child: isLiked
+                      ? const Icon(Icons.check, size: 14, color: Colors.white)
+                      : null,
+                );
+              },
+              onTap: (bool isLiked) async {
+                // 延迟，等待爆炸动画播放完
+                Future.delayed(const Duration(milliseconds: 450), () {
+                  _toggleWish(objectId, true);
+                });
+                return true;
+              },
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                wish['title'] as String,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF1C1C1E),
                 ),
-                child: isLiked
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
-                    : null,
-              );
-            },
-            onTap: (bool isLiked) async {
-              // 延迟，等待爆炸动画播放完
-              Future.delayed(const Duration(milliseconds: 450), () {
-                _toggleWish(objectId, true);
-              });
-              return true;
-            },
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              wish['title'] as String,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF1C1C1E),
               ),
             ),
-          ),
-          IconButton(
-            onPressed: () => _deleteWish(objectId),
-            icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFFC7C7CC)),
-          ),
-        ],
+            Icon(Icons.chevron_left_rounded, color: Colors.grey.shade300, size: 20),
+          ],
+        ),
       ),
     );
   }

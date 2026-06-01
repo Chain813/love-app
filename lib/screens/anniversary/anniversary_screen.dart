@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:animate_do/animate_do.dart';
 import '../../widgets/animated_press_card.dart';
+import '../../widgets/shimmer_loading.dart';
 
 /// 纪念日管理页面
 class AnniversaryScreen extends StatefulWidget {
@@ -70,7 +71,7 @@ class _AnniversaryScreenState extends State<AnniversaryScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? ShimmerLoading.list(itemCount: 3, cardHeight: 80)
           : Column(
               children: [
                 // 顶部日历小组件

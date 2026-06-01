@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../providers/auth_provider.dart';
 
 /// 情侣配对页面
@@ -205,9 +206,9 @@ class _PairScreenState extends State<PairScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: IconButton(
-                      onPressed: () => _copyInviteCode(context, authProvider.inviteCode),
+                      onPressed: () => _shareInviteCode(context, authProvider.inviteCode),
                       icon: Icon(
-                        Icons.copy_rounded,
+                        Icons.share_rounded,
                         color: theme.colorScheme.primary,
                       ),
                     ),
@@ -340,15 +341,9 @@ class _PairScreenState extends State<PairScreen> {
     );
   }
 
-  void _copyInviteCode(BuildContext context, String? code) {
+  void _shareInviteCode(BuildContext context, String? code) {
     if (code == null) return;
-    Clipboard.setData(ClipboardData(text: code));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('邀请码已复制'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-      ),
-    );
+    Share.share('我在虫米等你！邀请码：$code');
   }
 
   Future<void> _pair() async {

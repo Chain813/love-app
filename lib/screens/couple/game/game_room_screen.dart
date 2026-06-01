@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 class GameRoomScreen extends StatefulWidget {
   final String gameType;
@@ -48,11 +49,10 @@ class _GameRoomScreenState extends State<GameRoomScreen> {
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: () {
-                  Clipboard.setData(ClipboardData(text: _roomCode ?? ''));
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('已复制'), backgroundColor: theme.colorScheme.primary));
+                  Share.share('我在虫米等你玩$_gameTitle！房间码：$_roomCode');
                 },
-                icon: const Icon(Icons.copy_rounded, size: 18),
-                label: const Text('复制房间码'),
+                icon: const Icon(Icons.share_rounded, size: 18),
+                label: const Text('分享房间码'),
               ),
             ]),
           ),
@@ -69,8 +69,7 @@ class _GameRoomScreenState extends State<GameRoomScreen> {
           const Spacer(),
           SizedBox(width: double.infinity, height: 52, child: ElevatedButton.icon(
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: '我在虫米等你玩$_gameTitle！房间码：$_roomCode'));
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('已复制邀请'), backgroundColor: theme.colorScheme.primary));
+              Share.share('我在虫米等你玩$_gameTitle！房间码：$_roomCode');
             },
             icon: const Icon(Icons.share_rounded),
             label: const Text('发送房间码给对方'),

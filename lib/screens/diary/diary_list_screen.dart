@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import '../../services/leancloud_service.dart';
 import '../../utils/page_transitions.dart';
+import '../../widgets/shimmer_loading.dart';
 import 'diary_edit_screen.dart';
 import 'package:animate_do/animate_do.dart';
 
@@ -66,7 +68,7 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? ShimmerLoading.list(itemCount: 5, cardHeight: 120)
           : RefreshIndicator(
               onRefresh: _fetchDiaries,
               child: _diaries.isEmpty
@@ -84,14 +86,30 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
 
                         return FadeInUp(
                           duration: Duration(milliseconds: 400 + (index * 80)),
-                          child: _DiaryCard(
-                            dateStr: dateStr,
-                            content: content,
-                            mood: mood,
-                            weather: weather,
-                            tags: tags,
-                            primaryColor: theme.colorScheme.primary,
-                            onDelete: () => _confirmDelete(diary['objectId']),
+                          child: Slidable(
+                            key: ValueKey(diary['objectId']),
+                            endActionPane: ActionPane(
+                              motion: const BehindMotion(),
+                              children: [
+                                SlidableAction(
+                                  onPressed: (_) => _confirmDelete(diary['objectId']),
+                                  backgroundColor: Colors.redAccent,
+                                  foregroundColor: Colors.white,
+                                  icon: Icons.delete_rounded,
+                                  label: '删除',
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ],
+                            ),
+                            child: _DiaryCard(
+                              dateStr: dateStr,
+                              content: content,
+                              mood: mood,
+                              weather: weather,
+                              tags: tags,
+                              primaryColor: theme.colorScheme.primary,
+                              onDelete: () => _confirmDelete(diary['objectId']),
+                            ),
                           ),
                         );
                       },
