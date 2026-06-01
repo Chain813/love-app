@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:go_router/go_router.dart';
 import '../../services/leancloud_service.dart';
 import '../../utils/page_transitions.dart';
 import '../../widgets/shimmer_loading.dart';
@@ -55,10 +56,7 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
         actions: [
           IconButton(
             onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                FadeScaleRoute(page: const DiaryEditScreen()),
-              );
+              final result = await context.push('/diary/edit');
               if (result == true) {
                 _fetchDiaries();
               }
@@ -119,10 +117,7 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
         duration: const Duration(milliseconds: 600),
         child: FloatingActionButton(
           onPressed: () async {
-            final result = await Navigator.push(
-              context,
-              SlideUpRoute(page: const DiaryEditScreen()),
-            );
+            final result = await context.push('/diary/edit');
             if (result == true) {
               _fetchDiaries();
             }
