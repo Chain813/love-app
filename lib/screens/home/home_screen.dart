@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../../widgets/anniversary_card.dart';
 import '../../widgets/heart_overlay.dart';
 import '../../widgets/pulse_animation.dart';
@@ -681,10 +682,7 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
         // 设置按钮
         IconButton(
           onPressed: () {
-            Navigator.push(
-              context,
-              FadeScaleRoute(page: const SettingsScreen()),
-            );
+            context.push('/settings');
           },
           icon: const Icon(Icons.settings_rounded),
           color: const Color(0xFF8E8E93),
@@ -847,10 +845,7 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                   icon: Icons.chat_bubble_rounded,
                   content: '米米 的留言：\n“你在干嘛呢？🥰”',
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      FadeScaleRoute(page: const ChatScreen()),
-                    );
+                    context.push('/chat');
                   },
                 ),
               ),
@@ -884,10 +879,7 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                   completed: 6,
                   total: 10,
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      FadeScaleRoute(page: const WishScreen()),
-                    );
+                    context.push('/wish');
                   },
                 ),
               ),
@@ -900,10 +892,7 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
           duration: const Duration(milliseconds: 1000),
           child: GestureDetector(
             onTap: () {
-              Navigator.push(
-                context,
-                FadeScaleRoute(page: const AnniversaryScreen()),
-              );
+              context.push('/anniversary');
             },
             child: AnniversaryCard(
               title: '在一起纪念日',
@@ -1154,10 +1143,7 @@ class _CoupleContent extends StatelessWidget {
                     label: '心愿清单',
                     description: '想和你一起做的事',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        FadeScaleRoute(page: const WishScreen()),
-                      );
+                      context.push('/wish');
                     },
                   ),
                 ),
@@ -1169,10 +1155,7 @@ class _CoupleContent extends StatelessWidget {
                     label: '悄悄话',
                     description: '甜蜜私语',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        FadeScaleRoute(page: const ChatScreen()),
-                      );
+                      context.push('/chat');
                     },
                   ),
                 ),
@@ -1188,10 +1171,7 @@ class _CoupleContent extends StatelessWidget {
                     label: '小游戏',
                     description: '一起玩耍的快乐时光',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        FadeScaleRoute(page: const GameSelectScreen()),
-                      );
+                      context.push('/game');
                     },
                   ),
                 ),
@@ -1203,10 +1183,7 @@ class _CoupleContent extends StatelessWidget {
                     label: '生理与亲密记',
                     description: '姨妈与爱爱日历标注',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        FadeScaleRoute(page: const PeriodIntimacyScreen()),
-                      );
+                      context.push('/period');
                     },
                   ),
                 ),
@@ -1222,10 +1199,7 @@ class _CoupleContent extends StatelessWidget {
                     label: '共享位置',
                     description: '看看TA在哪里',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        FadeScaleRoute(page: const CoupleLocationScreen()),
-                      );
+                      context.push('/location');
                     },
                   ),
                 ),

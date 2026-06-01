@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -253,7 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 if (_adminTapCount >= 5) {
                   _adminTapCount = 0;
-                  Navigator.push(context, FadeScaleRoute(page: const AdminPanelScreen()));
+                  context.push('/admin');
                 }
               },
               child: Text('虫米 v1.0.0', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.3))),

@@ -1,11 +1,25 @@
+import 'package:json_annotation/json_annotation.dart';
+
+part 'anniversary.g.dart';
+
 /// 纪念日模型
+@JsonSerializable()
 class Anniversary {
+  @JsonKey(name: 'objectId')
   final String id;
+
+  @JsonKey(name: 'couple_id')
   final String coupleId;
+
   final String title;
   final DateTime date;
+
+  @JsonKey(name: 'is_lunar', defaultValue: false)
   final bool isLunar;
+
+  @JsonKey(name: 'remind_days', defaultValue: [1, 3, 7])
   final List<int> remindDays;
+
   final String icon;
 
   Anniversary({
@@ -18,27 +32,31 @@ class Anniversary {
     required this.icon,
   });
 
-  factory Anniversary.fromMap(Map<String, dynamic> map) {
-    return Anniversary(
-      id: map['objectId'] as String,
-      coupleId: map['couple_id'] as String,
-      title: map['title'] as String,
-      date: DateTime.parse(map['date'] as String),
-      isLunar: (map['is_lunar'] as bool?) ?? false,
-      remindDays: List<int>.from((map['remind_days'] as List?) ?? [1, 3, 7]),
-      icon: map['icon'] as String,
-    );
-  }
+  factory Anniversary.fromJson(Map<String, dynamic> json) => _$AnniversaryFromJson(json);
+  Map<String, dynamic> toJson() => _$AnniversaryToJson(this);
 
-  Map<String, dynamic> toMap() {
-    return {
-      'couple_id': coupleId,
-      'title': title,
-      'date': date.toIso8601String(),
-      'is_lunar': isLunar,
-      'remind_days': remindDays,
-      'icon': icon,
-    };
+  /// 兼容旧的 fromMap/toMap 接口
+  factory Anniversary.fromMap(Map<String, dynamic> map) => Anniversary.fromJson(map);
+  Map<String, dynamic> toMap() => toJson();
+
+  Anniversary copyWith({
+    String? id,
+    String? coupleId,
+    String? title,
+    DateTime? date,
+    bool? isLunar,
+    List<int>? remindDays,
+    String? icon,
+  }) {
+    return Anniversary(
+      id: id ?? this.id,
+      coupleId: coupleId ?? this.coupleId,
+      title: title ?? this.title,
+      date: date ?? this.date,
+      isLunar: isLunar ?? this.isLunar,
+      remindDays: remindDays ?? this.remindDays,
+      icon: icon ?? this.icon,
+    );
   }
 
   /// 距离下一个纪念日的天数
@@ -50,4 +68,12 @@ class Anniversary {
     }
     return nextDate.difference(now).inDays;
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Anniversary && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
