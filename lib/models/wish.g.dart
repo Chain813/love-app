@@ -6,7 +6,7 @@ part of 'wish.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-Wish _$WishFromJson(Map<String, dynamic> json) => Wish(
+_$WishImpl _$$WishImplFromJson(Map<String, dynamic> json) => _$WishImpl(
       id: json['objectId'] as String,
       coupleId: json['couple_id'] as String,
       title: json['title'] as String,
@@ -18,7 +18,8 @@ Wish _$WishFromJson(Map<String, dynamic> json) => Wish(
       createdBy: json['created_by'] as String,
     );
 
-Map<String, dynamic> _$WishToJson(Wish instance) => <String, dynamic>{
+Map<String, dynamic> _$$WishImplToJson(_$WishImpl instance) =>
+    <String, dynamic>{
       'objectId': instance.id,
       'couple_id': instance.coupleId,
       'title': instance.title,

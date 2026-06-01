@@ -6,7 +6,7 @@ part of 'diary.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-Diary _$DiaryFromJson(Map<String, dynamic> json) => Diary(
+_$DiaryImpl _$$DiaryImplFromJson(Map<String, dynamic> json) => _$DiaryImpl(
       id: json['objectId'] as String,
       coupleId: json['couple_id'] as String,
       title: json['title'] as String?,
@@ -14,7 +14,7 @@ Diary _$DiaryFromJson(Map<String, dynamic> json) => Diary(
       images: (json['images'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
-          [],
+          const <String>[],
       videoUrl: json['video_url'] as String?,
       weather: json['weather'] as String? ?? '☀️',
       weatherText: json['weather_text'] as String? ?? '晴天',
@@ -22,7 +22,7 @@ Diary _$DiaryFromJson(Map<String, dynamic> json) => Diary(
       moodText: json['mood_text'] as String? ?? '开心',
       tags:
           (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-              [],
+              const <String>[],
       locationName: json['location_name'] as String?,
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
@@ -33,7 +33,8 @@ Diary _$DiaryFromJson(Map<String, dynamic> json) => Diary(
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
 
-Map<String, dynamic> _$DiaryToJson(Diary instance) => <String, dynamic>{
+Map<String, dynamic> _$$DiaryImplToJson(_$DiaryImpl instance) =>
+    <String, dynamic>{
       'objectId': instance.id,
       'couple_id': instance.coupleId,
       'title': instance.title,

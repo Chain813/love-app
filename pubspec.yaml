@@ -54,6 +54,7 @@ dependencies:
   # 网络与数据
   dio: ^5.7.0
   connectivity_plus: ^6.1.2
+  json_annotation: ^4.9.0
 
   # 分享与外部链接
   share_plus: ^10.1.4
