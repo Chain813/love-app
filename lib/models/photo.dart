@@ -1,15 +1,37 @@
+import 'package:json_annotation/json_annotation.dart';
+
+part 'photo.g.dart';
+
 /// 照片模型
+@JsonSerializable()
 class Photo {
+  @JsonKey(name: 'objectId')
   final String id;
+
+  @JsonKey(name: 'couple_id')
   final String coupleId;
+
+  @JsonKey(name: 'image_url')
   final String imageUrl;
+
+  @JsonKey(name: 'thumbnail_url')
   final String? thumbnailUrl;
+
   final double? latitude;
   final double? longitude;
+
+  @JsonKey(name: 'location_name')
   final String? locationName;
+
+  @JsonKey(defaultValue: <String>[])
   final List<String> tags;
+
+  @JsonKey(name: 'taken_at')
   final DateTime takenAt;
+
   final DateTime createdAt;
+
+  @JsonKey(name: 'diary_id')
   final String? diaryId;
 
   Photo({
@@ -26,33 +48,46 @@ class Photo {
     this.diaryId,
   });
 
-  factory Photo.fromMap(Map<String, dynamic> map) {
+  factory Photo.fromJson(Map<String, dynamic> json) => _$PhotoFromJson(json);
+  Map<String, dynamic> toJson() => _$PhotoToJson(this);
+
+  /// 兼容旧的 fromMap/toMap 接口
+  factory Photo.fromMap(Map<String, dynamic> map) => Photo.fromJson(map);
+  Map<String, dynamic> toMap() => toJson();
+
+  Photo copyWith({
+    String? id,
+    String? coupleId,
+    String? imageUrl,
+    String? thumbnailUrl,
+    double? latitude,
+    double? longitude,
+    String? locationName,
+    List<String>? tags,
+    DateTime? takenAt,
+    DateTime? createdAt,
+    String? diaryId,
+  }) {
     return Photo(
-      id: map['objectId'] as String,
-      coupleId: map['couple_id'] as String,
-      imageUrl: map['image_url'] as String,
-      thumbnailUrl: map['thumbnail_url'] as String?,
-      latitude: map['latitude'] as double?,
-      longitude: map['longitude'] as double?,
-      locationName: map['location_name'] as String?,
-      tags: List<String>.from((map['tags'] as List?) ?? []),
-      takenAt: DateTime.parse(map['taken_at'] as String),
-      createdAt: DateTime.parse(map['createdAt'] as String),
-      diaryId: map['diary_id'] as String?,
+      id: id ?? this.id,
+      coupleId: coupleId ?? this.coupleId,
+      imageUrl: imageUrl ?? this.imageUrl,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      locationName: locationName ?? this.locationName,
+      tags: tags ?? this.tags,
+      takenAt: takenAt ?? this.takenAt,
+      createdAt: createdAt ?? this.createdAt,
+      diaryId: diaryId ?? this.diaryId,
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'couple_id': coupleId,
-      'image_url': imageUrl,
-      'thumbnail_url': thumbnailUrl,
-      'latitude': latitude,
-      'longitude': longitude,
-      'location_name': locationName,
-      'tags': tags,
-      'taken_at': takenAt.toIso8601String(),
-      'diary_id': diaryId,
-    };
-  }
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Photo && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

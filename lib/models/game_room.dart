@@ -1,15 +1,40 @@
+import 'package:json_annotation/json_annotation.dart';
+
+part 'game_room.g.dart';
+
 /// 游戏房间模型
+@JsonSerializable()
 class GameRoom {
+  @JsonKey(name: 'objectId')
   final String id;
+
+  @JsonKey(name: 'room_code')
   final String roomCode;
+
+  @JsonKey(name: 'couple_id')
   final String coupleId;
+
+  @JsonKey(name: 'game_type')
   final String gameType;
+
+  @JsonKey(defaultValue: 'waiting')
   final String status;
+
+  @JsonKey(name: 'player1_id')
   final String player1Id;
+
+  @JsonKey(name: 'player2_id')
   final String? player2Id;
+
+  @JsonKey(name: 'player1_ready', defaultValue: false)
   final bool player1Ready;
+
+  @JsonKey(name: 'player2_ready', defaultValue: false)
   final bool player2Ready;
+
+  @JsonKey(name: 'game_data', defaultValue: <String, dynamic>{})
   final Map<String, dynamic> gameData;
+
   final Map<String, dynamic>? result;
 
   GameRoom({
@@ -26,37 +51,49 @@ class GameRoom {
     this.result,
   });
 
-  factory GameRoom.fromMap(Map<String, dynamic> map) {
-    return GameRoom(
-      id: map['objectId'] as String,
-      roomCode: map['room_code'] as String,
-      coupleId: map['couple_id'] as String,
-      gameType: map['game_type'] as String,
-      status: map['status'] as String,
-      player1Id: map['player1_id'] as String,
-      player2Id: map['player2_id'] as String?,
-      player1Ready: (map['player1_ready'] as bool?) ?? false,
-      player2Ready: (map['player2_ready'] as bool?) ?? false,
-      gameData: Map<String, dynamic>.from((map['game_data'] as Map?) ?? {}),
-      result: map['result'] as Map<String, dynamic>?,
-    );
-  }
+  factory GameRoom.fromJson(Map<String, dynamic> json) => _$GameRoomFromJson(json);
+  Map<String, dynamic> toJson() => _$GameRoomToJson(this);
 
-  Map<String, dynamic> toMap() {
-    return {
-      'room_code': roomCode,
-      'couple_id': coupleId,
-      'game_type': gameType,
-      'status': status,
-      'player1_id': player1Id,
-      'player2_id': player2Id,
-      'player1_ready': player1Ready,
-      'player2_ready': player2Ready,
-      'game_data': gameData,
-      'result': result,
-    };
+  /// 兼容旧的 fromMap/toMap 接口
+  factory GameRoom.fromMap(Map<String, dynamic> map) => GameRoom.fromJson(map);
+  Map<String, dynamic> toMap() => toJson();
+
+  GameRoom copyWith({
+    String? id,
+    String? roomCode,
+    String? coupleId,
+    String? gameType,
+    String? status,
+    String? player1Id,
+    String? player2Id,
+    bool? player1Ready,
+    bool? player2Ready,
+    Map<String, dynamic>? gameData,
+    Map<String, dynamic>? result,
+  }) {
+    return GameRoom(
+      id: id ?? this.id,
+      roomCode: roomCode ?? this.roomCode,
+      coupleId: coupleId ?? this.coupleId,
+      gameType: gameType ?? this.gameType,
+      status: status ?? this.status,
+      player1Id: player1Id ?? this.player1Id,
+      player2Id: player2Id ?? this.player2Id,
+      player1Ready: player1Ready ?? this.player1Ready,
+      player2Ready: player2Ready ?? this.player2Ready,
+      gameData: gameData ?? this.gameData,
+      result: result ?? this.result,
+    );
   }
 
   bool get isReady => player1Ready && player2Ready;
   bool get isFull => player2Id != null;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GameRoom && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
