@@ -6,7 +6,8 @@ part of 'game_room.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-GameRoom _$GameRoomFromJson(Map<String, dynamic> json) => GameRoom(
+_$GameRoomImpl _$$GameRoomImplFromJson(Map<String, dynamic> json) =>
+    _$GameRoomImpl(
       id: json['objectId'] as String,
       roomCode: json['room_code'] as String,
       coupleId: json['couple_id'] as String,
@@ -16,11 +17,13 @@ GameRoom _$GameRoomFromJson(Map<String, dynamic> json) => GameRoom(
       player2Id: json['player2_id'] as String?,
       player1Ready: json['player1_ready'] as bool? ?? false,
       player2Ready: json['player2_ready'] as bool? ?? false,
-      gameData: json['game_data'] as Map<String, dynamic>? ?? {},
+      gameData: json['game_data'] as Map<String, dynamic>? ??
+          const <String, dynamic>{},
       result: json['result'] as Map<String, dynamic>?,
     );
 
-Map<String, dynamic> _$GameRoomToJson(GameRoom instance) => <String, dynamic>{
+Map<String, dynamic> _$$GameRoomImplToJson(_$GameRoomImpl instance) =>
+    <String, dynamic>{
       'objectId': instance.id,
       'room_code': instance.roomCode,
       'couple_id': instance.coupleId,

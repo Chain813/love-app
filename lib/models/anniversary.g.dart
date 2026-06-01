@@ -6,7 +6,8 @@ part of 'anniversary.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-Anniversary _$AnniversaryFromJson(Map<String, dynamic> json) => Anniversary(
+_$AnniversaryImpl _$$AnniversaryImplFromJson(Map<String, dynamic> json) =>
+    _$AnniversaryImpl(
       id: json['objectId'] as String,
       coupleId: json['couple_id'] as String,
       title: json['title'] as String,
@@ -15,11 +16,11 @@ Anniversary _$AnniversaryFromJson(Map<String, dynamic> json) => Anniversary(
       remindDays: (json['remind_days'] as List<dynamic>?)
               ?.map((e) => (e as num).toInt())
               .toList() ??
-          [1, 3, 7],
+          const [1, 3, 7],
       icon: json['icon'] as String,
     );
 
-Map<String, dynamic> _$AnniversaryToJson(Anniversary instance) =>
+Map<String, dynamic> _$$AnniversaryImplToJson(_$AnniversaryImpl instance) =>
     <String, dynamic>{
       'objectId': instance.id,
       'couple_id': instance.coupleId,

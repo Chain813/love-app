@@ -1,63 +1,27 @@
-import 'package:json_annotation/json_annotation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
+part 'anniversary.freezed.dart';
 part 'anniversary.g.dart';
 
 /// 纪念日模型
-@JsonSerializable()
-class Anniversary {
-  @JsonKey(name: 'objectId')
-  final String id;
-
-  @JsonKey(name: 'couple_id')
-  final String coupleId;
-
-  final String title;
-  final DateTime date;
-
-  @JsonKey(name: 'is_lunar', defaultValue: false)
-  final bool isLunar;
-
-  @JsonKey(name: 'remind_days', defaultValue: [1, 3, 7])
-  final List<int> remindDays;
-
-  final String icon;
-
-  Anniversary({
-    required this.id,
-    required this.coupleId,
-    required this.title,
-    required this.date,
-    this.isLunar = false,
-    this.remindDays = const [1, 3, 7],
-    required this.icon,
-  });
+@freezed
+class Anniversary with _$Anniversary {
+  const factory Anniversary({
+    @JsonKey(name: 'objectId') required String id,
+    @JsonKey(name: 'couple_id') required String coupleId,
+    required String title,
+    required DateTime date,
+    @JsonKey(name: 'is_lunar') @Default(false) bool isLunar,
+    @JsonKey(name: 'remind_days') @Default([1, 3, 7]) List<int> remindDays,
+    required String icon,
+  }) = _Anniversary;
 
   factory Anniversary.fromJson(Map<String, dynamic> json) => _$AnniversaryFromJson(json);
-  Map<String, dynamic> toJson() => _$AnniversaryToJson(this);
-
-  /// 兼容旧的 fromMap/toMap 接口
   factory Anniversary.fromMap(Map<String, dynamic> map) => Anniversary.fromJson(map);
-  Map<String, dynamic> toMap() => toJson();
+}
 
-  Anniversary copyWith({
-    String? id,
-    String? coupleId,
-    String? title,
-    DateTime? date,
-    bool? isLunar,
-    List<int>? remindDays,
-    String? icon,
-  }) {
-    return Anniversary(
-      id: id ?? this.id,
-      coupleId: coupleId ?? this.coupleId,
-      title: title ?? this.title,
-      date: date ?? this.date,
-      isLunar: isLunar ?? this.isLunar,
-      remindDays: remindDays ?? this.remindDays,
-      icon: icon ?? this.icon,
-    );
-  }
+extension AnniversaryExtension on Anniversary {
+  Map<String, dynamic> toMap() => toJson();
 
   /// 距离下一个纪念日的天数
   int get daysUntilNext {
@@ -68,12 +32,4 @@ class Anniversary {
     }
     return nextDate.difference(now).inDays;
   }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is Anniversary && runtimeType == other.runtimeType && id == other.id;
-
-  @override
-  int get hashCode => id.hashCode;
 }
