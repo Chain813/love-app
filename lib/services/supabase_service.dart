@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'db_config_service.dart';
+import 'http_client.dart';
 
 class SupabaseService {
   static String get _baseUrl => DbConfigService.supabaseUrl;
@@ -20,6 +22,13 @@ class SupabaseService {
       'Authorization': 'Bearer $sessionToken',
     };
   }
+
+  /// Dio 客户端（带拦截器和重试）
+  static final Dio _dio = HttpClient.createWithHeaders({
+    'apikey': DbConfigService.supabaseAnonKey,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation',
+  });
 
   /// 注册或登录
   static Future<Map<String, dynamic>> registerOrLogin(

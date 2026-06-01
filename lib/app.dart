@@ -7,6 +7,7 @@ import 'providers/location_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/pair_screen.dart';
 import 'screens/home/home_screen.dart';
+import 'widgets/network_status_banner.dart';
 
 class ChongMiApp extends StatelessWidget {
   const ChongMiApp({super.key});
@@ -25,7 +26,7 @@ class ChongMiApp extends StatelessWidget {
             title: '虫米',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.getTheme(themeProvider.currentTheme),
-            home: const _AppRouter(),
+            home: const NetworkStatusBanner(child: _AppRouter()),
           );
         },
       ),

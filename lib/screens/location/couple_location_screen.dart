@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/keys.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/location_provider.dart';
@@ -282,9 +283,33 @@ class _CoupleLocationScreenState extends State<CoupleLocationScreen> {
               ),
             ),
           ),
+          // 导航到伴侣位置按钮
+          if (locProv.hasPartnerLocation) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _navigateToPartner(locProv.partnerLat!, locProv.partnerLng!),
+                icon: const Icon(Icons.navigation_rounded, size: 18),
+                label: const Text('导航到TA'),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _navigateToPartner(double lat, double lng) async {
+    // 高德地图导航链接
+    final uri = Uri.parse('https://uri.amap.com/marker?position=$lng,$lat&name=伴侣位置');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Widget _buildLocationRow({
