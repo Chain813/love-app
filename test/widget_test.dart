@@ -29,9 +29,9 @@ void main() {
     // 等待动画
     await tester.pump(const Duration(seconds: 2));
 
-    // 应该看到进入专属空间按钮
-    expect(find.text('进入专属空间'), findsOneWidget);
     // 应该看到副标题
     expect(find.text('记录恋爱的点点滴滴'), findsOneWidget);
+    // 应该看到品牌名
+    expect(find.text('虫米'), findsOneWidget);
   });
 }

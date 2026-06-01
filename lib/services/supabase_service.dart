@@ -122,6 +122,7 @@ class SupabaseService {
         if (signupRes.statusCode == 200 || signupRes.statusCode == 201) {
           final signupData = jsonDecode(signupRes.body);
           final userId = signupData['user']?['id'] ?? signupData['id'];
+          final sessionToken = signupData['access_token'] ?? '';
 
           if (userId == null) {
             throw Exception('注册响应异常，未获取到用户ID');
@@ -156,8 +157,20 @@ class SupabaseService {
             throw Exception('创建公开资料 Profile 失败，错误码: ${createProfileRes.statusCode}，详情: $errorBody');
           }
 
-          // 注册成功，提示验证邮箱（不自动登录）
-          throw Exception('注册成功！请前往 $cleanEmail 查收验证邮件，点击链接完成验证后再登录。');
+          // 检查是否需要邮箱验证
+          if (sessionToken.isEmpty) {
+            // 邮箱验证已开启，需要验证后才能登录
+            throw Exception('注册成功！请前往 $cleanEmail 查收验证邮件，点击链接完成验证后再登录。');
+          }
+
+          // 邮箱验证已关闭，直接登录
+          final Map<String, dynamic> finalUser = {
+            ...profileBody,
+            'sessionToken': sessionToken,
+          };
+
+          await _saveUserToLocal(finalUser);
+          return finalUser;
         } else {
           final errorData = jsonDecode(signupRes.body);
           final String msg = errorData['msg'] ?? errorData['error_description'] ?? errorData['message'] ?? '注册失败，请重试';
@@ -191,6 +204,87 @@ class SupabaseService {
     final user = box.get('current_user');
     if (user == null) return null;
     return Map<String, dynamic>.from(user as Map);
+  }
+
+  /// 检查邮箱是否已注册
+  /// 返回 'exists' | 'not_found' | 'error'
+  static Future<String> checkEmailExists(String email) async {
+    try {
+      final url = Uri.parse('$_baseUrl/rest/v1/Profile?email=eq.${Uri.encodeComponent(email.trim().toLowerCase())}&select=objectId');
+      final res = await http.get(url, headers: _headers);
+      if (res.statusCode == 200) {
+        final List list = jsonDecode(res.body);
+        return list.isNotEmpty ? 'exists' : 'not_found';
+      }
+      return 'error';
+    } catch (e) {
+      return 'error';
+    }
+  }
+
+  /// 通过伴侣邮箱验证后重置密码
+  /// 返回成功消息或抛出异常
+  static Future<String> resetPasswordWithPartnerEmail({
+    required String myEmail,
+    required String partnerEmail,
+    required String newPassword,
+  }) async {
+    // 1. 查找我的 Profile
+    final myProfileUrl = Uri.parse('$_baseUrl/rest/v1/Profile?email=eq.${Uri.encodeComponent(myEmail.trim().toLowerCase())}&select=objectId,couple_id');
+    final myRes = await http.get(myProfileUrl, headers: _headers);
+    if (myRes.statusCode != 200) throw Exception('查询失败');
+
+    final List myProfiles = jsonDecode(myRes.body);
+    if (myProfiles.isEmpty) throw Exception('未找到您的账号');
+
+    final myProfile = myProfiles.first;
+    final coupleId = myProfile['couple_id'];
+    if (coupleId == null) throw Exception('您尚未配对，无法通过伴侣验证找回密码');
+
+    // 2. 查找伴侣的 Profile（通过 CoupleRelation）
+    final relationUrl = Uri.parse('$_baseUrl/rest/v1/CoupleRelation?couple_id=eq.$coupleId&select=user1_id,user2_id');
+    final relRes = await http.get(relationUrl, headers: _headers);
+    if (relRes.statusCode != 200) throw Exception('查询配对关系失败');
+
+    final List relations = jsonDecode(relRes.body);
+    if (relations.isEmpty) throw Exception('未找到配对关系');
+
+    final relation = relations.first;
+    final myUserId = myProfile['objectId'];
+    final partnerUserId = relation['user1_id'] == myUserId
+        ? relation['user2_id']
+        : relation['user1_id'];
+
+    // 3. 查找伴侣的邮箱
+    final partnerUrl = Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$partnerUserId&select=email');
+    final partnerRes = await http.get(partnerUrl, headers: _headers);
+    if (partnerRes.statusCode != 200) throw Exception('查询伴侣信息失败');
+
+    final List partnerProfiles = jsonDecode(partnerRes.body);
+    if (partnerProfiles.isEmpty) throw Exception('未找到伴侣信息');
+
+    final partnerEmailInDb = partnerProfiles.first['email'] as String?;
+    if (partnerEmailInDb == null) throw Exception('伴侣未绑定邮箱');
+
+    // 4. 验证伴侣邮箱
+    if (partnerEmailInDb.trim().toLowerCase() != partnerEmail.trim().toLowerCase()) {
+      throw Exception('伴侣邮箱验证失败，请确认输入正确');
+    }
+
+    // 5. 通过 Supabase Admin API 重置密码（需要 service_role key）
+    // 由于我们没有 service_role key，使用 Supabase 的密码重置邮件
+    final resetUrl = Uri.parse('$_baseUrl/auth/v1/recover');
+    final resetRes = await http.post(
+      resetUrl,
+      headers: _headers,
+      body: jsonEncode({'email': myEmail.trim().toLowerCase()}),
+    );
+
+    if (resetRes.statusCode == 200) {
+      return '密码重置邮件已发送至 $myEmail，请查收并设置新密码。';
+    } else {
+      throw Exception('发送密码重置邮件失败，请稍后再试');
+    }
   }
 
   /// 保存用户信息到本地
@@ -991,7 +1085,7 @@ class SupabaseService {
       if (response.statusCode == 200) {
         final List results = jsonDecode(response.body);
         final list = List<Map<String, dynamic>>.from(results);
-        
+
         final box = await Hive.openBox('intimacy_logs');
         await box.put('list', list);
         return list;
@@ -1008,6 +1102,69 @@ class SupabaseService {
       );
     }
     return [];
+  }
+
+  static Future<void> toggleIntimacyLog(String dateString, bool isIntimacy) async {
+    final user = await getCurrentUser();
+    if (user == null || user['couple_id'] == null) throw Exception('未登录');
+    final coupleId = user['couple_id'];
+
+    try {
+      if (isIntimacy) {
+        // 检查是否存在
+        final queryUrl = Uri.parse('$_baseUrl/rest/v1/IntimacyLog?couple_id=eq.$coupleId&date=eq.$dateString&select=objectId');
+        final checkRes = await http.get(queryUrl, headers: _headers);
+        bool exists = false;
+        if (checkRes.statusCode == 200) {
+          final List list = jsonDecode(checkRes.body);
+          exists = list.isNotEmpty;
+        }
+
+        if (!exists) {
+          final url = Uri.parse('$_baseUrl/rest/v1/IntimacyLog');
+          await http.post(
+            url,
+            headers: _headers,
+            body: jsonEncode({
+              'objectId': 'intimacy_${DateTime.now().millisecondsSinceEpoch}',
+              'couple_id': coupleId,
+              'date': dateString,
+              'createdAt': DateTime.now().toIso8601String(),
+              'updatedAt': DateTime.now().toIso8601String(),
+            }),
+          );
+        }
+      } else {
+        // 删除记录
+        final deleteUrl = Uri.parse('$_baseUrl/rest/v1/IntimacyLog?couple_id=eq.$coupleId&date=eq.$dateString');
+        await http.delete(deleteUrl, headers: _headers);
+      }
+    } catch (e) {
+      print("toggleIntimacyLog offline fallback: $e");
+    }
+
+    // Cache locally
+    final box = await Hive.openBox('intimacy_logs');
+    final List<dynamic> rawList = box.get('list') ?? [];
+    final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
+      rawList.map((e) => Map<String, dynamic>.from(e as Map))
+    );
+
+    if (isIntimacy) {
+      final exists = list.any((item) => item['date'] == dateString);
+      if (!exists) {
+        list.insert(0, {
+          'objectId': 'intimacy_${DateTime.now().millisecondsSinceEpoch}',
+          'couple_id': coupleId,
+          'date': dateString,
+          'createdAt': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+      }
+    } else {
+      list.removeWhere((item) => item['date'] == dateString);
+    }
+    await box.put('list', list);
   }
 
   static Future<void> saveIntimacyLog({

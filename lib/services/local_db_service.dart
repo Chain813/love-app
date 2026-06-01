@@ -394,6 +394,29 @@ class LocalDbService {
     return [];
   }
 
+  static Future<void> toggleIntimacyLog(String dateString, bool isIntimacy) async {
+    final box = await Hive.openBox('intimacy_logs');
+    final List<dynamic> rawList = box.get('list') ?? [];
+    final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
+      rawList.map((e) => Map<String, dynamic>.from(e as Map))
+    );
+
+    if (isIntimacy) {
+      final exists = list.any((item) => item['date'] == dateString);
+      if (!exists) {
+        list.insert(0, {
+          'objectId': 'local_intimacy_${DateTime.now().millisecondsSinceEpoch}',
+          'date': dateString,
+          'createdAt': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+      }
+    } else {
+      list.removeWhere((item) => item['date'] == dateString);
+    }
+    await box.put('list', list);
+  }
+
   static Future<void> saveIntimacyLog({
     String? objectId,
     required String date,

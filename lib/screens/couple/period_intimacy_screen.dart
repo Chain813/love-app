@@ -23,12 +23,16 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
   // 数据层状态
   bool _isLoading = true;
   Set<String> _periodDays = {};
-  Map<String, Map<String, dynamic>> _intimacyMap = {};
+  Set<String> _intimacyDays = {};
 
   // 日历相关
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
+
+  // 标注模式
+  bool _isPeriodMarkingMode = false;
+  bool _isIntimacyMarkingMode = false;
 
   @override
   void initState() {
@@ -40,7 +44,6 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
     final box = await Hive.openBox('user');
     final pin = box.get('intimacy_pin') as String?;
     if (pin == null || pin.isEmpty) {
-      // 没有设置密码锁，直接解锁并加载数据
       setState(() {
         _isUnlocked = true;
         _savedPin = null;
@@ -57,22 +60,15 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
   Future<void> _loadCloudData() async {
     setState(() => _isLoading = true);
     try {
-      // 1. 加载姨妈记录
       final periods = await LeanCloudService.fetchPeriodLogs();
-      // 2. 加载爱爱记录
       final intimacies = await LeanCloudService.fetchIntimacyLogs();
-
-      final Map<String, Map<String, dynamic>> tempIntimacy = {};
-      for (final log in intimacies) {
-        final dateStr = log['date'] as String? ?? '';
-        if (dateStr.isNotEmpty) {
-          tempIntimacy[dateStr] = log;
-        }
-      }
 
       setState(() {
         _periodDays = Set<String>.from(periods);
-        _intimacyMap = tempIntimacy;
+        _intimacyDays = intimacies
+            .map((log) => log['date'] as String? ?? '')
+            .where((s) => s.isNotEmpty)
+            .toSet();
       });
     } catch (e) {
       debugPrint('加载生理与亲密记数据失败: $e');
@@ -101,7 +97,6 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
         });
         _loadCloudData();
       } else {
-        // 密码错误，震动或清空
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('⚠️ 密码错误，请重新输入'),
@@ -155,6 +150,32 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
     );
   }
 
+  // 切换生理期标注
+  Future<void> _togglePeriod(String dateStr) async {
+    final hasPeriod = _periodDays.contains(dateStr);
+    setState(() {
+      if (hasPeriod) {
+        _periodDays.remove(dateStr);
+      } else {
+        _periodDays.add(dateStr);
+      }
+    });
+    await LeanCloudService.togglePeriodLog(dateStr, !hasPeriod);
+  }
+
+  // 切换亲密标注
+  Future<void> _toggleIntimacy(String dateStr) async {
+    final hasIntimacy = _intimacyDays.contains(dateStr);
+    setState(() {
+      if (hasIntimacy) {
+        _intimacyDays.remove(dateStr);
+      } else {
+        _intimacyDays.add(dateStr);
+      }
+    });
+    await LeanCloudService.toggleIntimacyLog(dateStr, !hasIntimacy);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_isUnlocked) {
@@ -164,7 +185,7 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
     final theme = Theme.of(context);
     final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDay);
     final hasPeriod = _periodDays.contains(selectedDateStr);
-    final intimacyLog = _intimacyMap[selectedDateStr];
+    final hasIntimacy = _intimacyDays.contains(selectedDateStr);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9FB),
@@ -195,7 +216,7 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(
                 children: [
-                  // 1. 日历标注面板卡片
+                  // 1. 日历
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -220,6 +241,14 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
                           _selectedDay = selectedDay;
                           _focusedDay = focusedDay;
                         });
+
+                        // 标注模式下，点击日期直接切换
+                        final dateStr = DateFormat('yyyy-MM-dd').format(selectedDay);
+                        if (_isPeriodMarkingMode) {
+                          _togglePeriod(dateStr);
+                        } else if (_isIntimacyMarkingMode) {
+                          _toggleIntimacy(dateStr);
+                        }
                       },
                       onFormatChanged: (format) {
                         setState(() {
@@ -230,16 +259,16 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
                         final dateStr = DateFormat('yyyy-MM-dd').format(day);
                         final List<String> events = [];
                         if (_periodDays.contains(dateStr)) events.add('period');
-                        if (_intimacyMap.containsKey(dateStr)) events.add('intimacy');
+                        if (_intimacyDays.contains(dateStr)) events.add('intimacy');
                         return events;
                       },
                       calendarBuilders: CalendarBuilders(
                         markerBuilder: (context, date, events) {
                           if (events.isEmpty) return const SizedBox.shrink();
-                          
+
                           final dateStr = DateFormat('yyyy-MM-dd').format(date);
                           final hasP = _periodDays.contains(dateStr);
-                          final hasI = _intimacyMap.containsKey(dateStr);
+                          final hasI = _intimacyDays.contains(dateStr);
 
                           return Positioned(
                             bottom: 1,
@@ -305,14 +334,109 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  // 2. 状态标注卡片
+                  // 2. 标注模式按钮区
                   FadeInUp(
                     duration: const Duration(milliseconds: 400),
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          // 生理期标注按钮
+                          _buildMarkingButton(
+                            icon: Icons.circle,
+                            iconColor: Colors.redAccent,
+                            label: '生理期标注',
+                            isActive: _isPeriodMarkingMode,
+                            activeColor: Colors.redAccent,
+                            onTap: () {
+                              setState(() {
+                                if (_isPeriodMarkingMode) {
+                                  _isPeriodMarkingMode = false;
+                                } else {
+                                  _isPeriodMarkingMode = true;
+                                  _isIntimacyMarkingMode = false;
+                                }
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          // 亲密标注按钮
+                          _buildMarkingButton(
+                            icon: Icons.favorite_rounded,
+                            iconColor: Colors.pinkAccent,
+                            label: '亲密时光标注',
+                            isActive: _isIntimacyMarkingMode,
+                            activeColor: Colors.pinkAccent,
+                            onTap: () {
+                              setState(() {
+                                if (_isIntimacyMarkingMode) {
+                                  _isIntimacyMarkingMode = false;
+                                } else {
+                                  _isIntimacyMarkingMode = true;
+                                  _isPeriodMarkingMode = false;
+                                }
+                              });
+                            },
+                          ),
+
+                          // 标注模式提示
+                          if (_isPeriodMarkingMode || _isIntimacyMarkingMode) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: (_isPeriodMarkingMode ? Colors.redAccent : Colors.pinkAccent)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.touch_app_rounded,
+                                    size: 16,
+                                    color: _isPeriodMarkingMode ? Colors.redAccent : Colors.pinkAccent,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '点击日期进行标注，再次点击取消',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: _isPeriodMarkingMode ? Colors.redAccent : Colors.pinkAccent,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 3. 今日状态
+                  FadeInUp(
+                    duration: const Duration(milliseconds: 500),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -339,7 +463,7 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
                               ),
                               const SizedBox(width: 8),
                               const Text(
-                                '生活标记与记录',
+                                '状态',
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: Color(0xFF8E8E93),
@@ -347,136 +471,119 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
                               ),
                             ],
                           ),
-                          const Divider(height: 24),
-
-                          // 🔴 生理期标注开关
-                          Row(
-                            children: [
-                              const Icon(Icons.circle, color: Colors.redAccent, size: 14),
-                              const SizedBox(width: 8),
-                              const Text(
-                                '大姨妈到访（生理期）',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                              ),
-                              const Spacer(),
-                              Switch.adaptive(
-                                value: hasPeriod,
-                                activeColor: Colors.redAccent,
-                                onChanged: (value) async {
-                                  setState(() {
-                                    if (value) {
-                                      _periodDays.add(selectedDateStr);
-                                    } else {
-                                      _periodDays.remove(selectedDateStr);
-                                    }
-                                  });
-                                  await LeanCloudService.togglePeriodLog(selectedDateStr, value);
-                                },
-                              ),
-                            ],
-                          ),
-                          
-                          const Divider(height: 24),
-
-                          // 💖 亲密记录区
-                          Row(
-                            children: [
-                              const Icon(Icons.favorite_rounded, color: Colors.pinkAccent, size: 14),
-                              const SizedBox(width: 8),
-                              const Text(
-                                '亲密时光（爱爱期）',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
                           const SizedBox(height: 12),
-
-                          if (intimacyLog != null) ...[
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF0F5),
-                                borderRadius: BorderRadius.circular(16),
+                          Row(
+                            children: [
+                              _buildStatusChip(
+                                icon: Icons.circle,
+                                color: Colors.redAccent,
+                                label: '生理期',
+                                isActive: hasPeriod,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '伴侣心情：${intimacyLog['mood'] ?? '🥰'}',
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                      ),
-                                      const Spacer(),
-                                      Row(
-                                        children: List.generate(
-                                          5,
-                                          (index) => Icon(
-                                            Icons.favorite_rounded,
-                                            size: 14,
-                                            color: index < (intimacyLog['rating'] ?? 0.0)
-                                                ? Colors.pinkAccent
-                                                : Colors.grey.shade300,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  if ((intimacyLog['note'] as String? ?? '').isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '私密备注：${intimacyLog['note']}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade700,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                              const SizedBox(width: 12),
+                              _buildStatusChip(
+                                icon: Icons.favorite_rounded,
+                                color: Colors.pinkAccent,
+                                label: '亲密时光',
+                                isActive: hasIntimacy,
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton.icon(
-                                  onPressed: () => _showIntimacyDialog(
-                                    objectId: intimacyLog['objectId'],
-                                    initialMood: intimacyLog['mood'] ?? '🥰',
-                                    initialRating: (intimacyLog['rating'] as num?)?.toDouble() ?? 5.0,
-                                    initialNote: intimacyLog['note'] ?? '',
-                                  ),
-                                  icon: const Icon(Icons.edit_outlined, size: 16),
-                                  label: const Text('修改记录'),
-                                ),
-                              ],
-                            ),
-                          ] else ...[
-                            Center(
-                              child: TextButton.icon(
-                                onPressed: () => _showIntimacyDialog(),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.pinkAccent,
-                                  backgroundColor: const Color(0xFFFFF0F5),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                ),
-                                icon: const Icon(Icons.favorite_rounded, size: 16),
-                                label: const Text('添加亲密爱爱记录'),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ],
                       ),
                     ),
                   ),
+
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildMarkingButton({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required bool isActive,
+    required Color activeColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isActive ? activeColor.withValues(alpha: 0.1) : const Color(0xFFF2F2F7),
+          borderRadius: BorderRadius.circular(14),
+          border: isActive
+              ? Border.all(color: activeColor, width: 1.5)
+              : null,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: isActive ? activeColor : Colors.grey, size: 18),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: isActive ? activeColor : const Color(0xFF1C1C1E),
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: isActive ? activeColor : Colors.grey.shade400,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                isActive ? '标注中' : '开启',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required bool isActive,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isActive ? color.withValues(alpha: 0.1) : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: isActive ? color : Colors.grey),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: isActive ? color : Colors.grey,
+            ),
+          ),
+          if (isActive) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.check_rounded, size: 14, color: color),
+          ],
+        ],
+      ),
     );
   }
 
@@ -537,20 +644,7 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
             // 键盘布局
             _buildKeyboard(),
 
-            const SizedBox(height: 24),
-            
-            if (_isSettingPinMode)
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _isUnlocked = true;
-                    _isSettingPinMode = false;
-                  });
-                  _loadCloudData();
-                },
-                child: const Text('暂不设置', style: TextStyle(color: Color(0xFF8E8E93))),
-              ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -558,214 +652,77 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
   }
 
   Widget _buildKeyboard() {
-    final keys = [
-      ['1', '2', '3'],
-      ['4', '5', '6'],
-      ['7', '8', '9'],
-      ['C', '0', '⌫']
-    ];
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Column(
-        children: keys.map((row) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: row.map((key) {
-                return _buildKeyboardButton(key);
-              }).toList(),
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: ['1', '2', '3'].map((key) => _buildKeyButton(key)).toList(),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: ['4', '5', '6'].map((key) => _buildKeyButton(key)).toList(),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: ['7', '8', '9'].map((key) => _buildKeyButton(key)).toList(),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            const SizedBox(width: 72),
+            _buildKeyButton('0'),
+            SizedBox(
+              width: 72,
+              height: 72,
+              child: IconButton(
+                onPressed: () {
+                  setState(() {
+                    if (_isSettingPinMode) {
+                      if (_tempPin.isNotEmpty) {
+                        _tempPin = _tempPin.substring(0, _tempPin.length - 1);
+                      }
+                    } else {
+                      if (_inputPin.isNotEmpty) {
+                        _inputPin = _inputPin.substring(0, _inputPin.length - 1);
+                      }
+                    }
+                  });
+                },
+                icon: const Icon(Icons.backspace_outlined, size: 28),
+                color: const Color(0xFF8E8E93),
+              ),
             ),
-          );
-        }).toList(),
-      ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _buildKeyboardButton(String label) {
-    final isSpecial = label == 'C' || label == '⌫';
+  Widget _buildKeyButton(String key) {
     return SizedBox(
       width: 72,
       height: 72,
-      child: OutlinedButton(
-        onPressed: () {
-          if (label == 'C') {
-            setState(() {
-              if (_isSettingPinMode) {
-                _tempPin = '';
-              } else {
-                _inputPin = '';
-              }
-            });
-          } else if (label == '⌫') {
-            setState(() {
-              if (_isSettingPinMode) {
-                if (_tempPin.isNotEmpty) _tempPin = _tempPin.substring(0, _tempPin.length - 1);
-              } else {
-                if (_inputPin.isNotEmpty) _inputPin = _inputPin.substring(0, _inputPin.length - 1);
-              }
-            });
-          } else {
-            _onKeyPress(label);
-          }
-        },
-        style: OutlinedButton.styleFrom(
-          side: isSpecial ? BorderSide.none : const BorderSide(color: Color(0xFFE5E5EA), width: 1.5),
-          shape: const CircleBorder(),
-          backgroundColor: isSpecial ? Colors.transparent : Colors.white,
-          foregroundColor: Colors.black87,
+      child: Material(
+        color: const Color(0xFFF2F2F7),
+        borderRadius: BorderRadius.circular(36),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(36),
+          onTap: () => _onKeyPress(key),
+          child: Center(
+            child: Text(
+              key,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1C1C1E),
+              ),
+            ),
+          ),
         ),
-        child: label == '⌫'
-            ? const Icon(Icons.backspace_outlined, size: 20)
-            : Text(
-                label,
-                style: TextStyle(
-                  fontSize: label == 'C' ? 16 : 24,
-                  fontWeight: FontWeight.w500,
-                  color: isSpecial ? Colors.grey : Colors.black87,
-                ),
-              ),
       ),
-    );
-  }
-
-  /// 爱爱记录添加/编辑弹窗
-  void _showIntimacyDialog({
-    String? objectId,
-    String initialMood = '🥰',
-    double initialRating = 5.0,
-    String initialNote = '',
-  }) {
-    String selectedMood = initialMood;
-    double selectedRating = initialRating;
-    final noteController = TextEditingController(text: initialNote);
-
-    final moods = ['🥰', '😍', '😘', '😈', '🤫', '🥵', '💋'];
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: Text(objectId == null ? '记录亲密时光 💖' : '修改亲密记录 💖'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('伴侣心情', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
-                    const SizedBox(height: 8),
-                    // 心情选择
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: moods.map((emoji) {
-                        final isSelected = selectedMood == emoji;
-                        return GestureDetector(
-                          onTap: () {
-                            setDialogState(() {
-                              selectedMood = emoji;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: isSelected ? Colors.pink.shade50 : Colors.transparent,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isSelected ? Colors.pinkAccent : Colors.transparent,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Text(emoji, style: const TextStyle(fontSize: 22)),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 20),
-
-                    const Text('体验满意度', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(5, (index) {
-                        final active = index < selectedRating.toInt();
-                        return IconButton(
-                          icon: Icon(
-                            Icons.favorite_rounded,
-                            color: active ? Colors.pinkAccent : Colors.grey.shade300,
-                            size: 28,
-                          ),
-                          onPressed: () {
-                            setDialogState(() {
-                              selectedRating = (index + 1).toDouble();
-                            });
-                          },
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 16),
-
-                    const Text('私密备注（选填）', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: noteController,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        hintText: '写些悄悄话吧，仅你们可见...',
-                        filled: true,
-                        fillColor: const Color(0xFFF2F2F7),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.all(12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('取消'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pinkAccent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDay);
-                    
-                    setState(() => _isLoading = true);
-                    try {
-                      await LeanCloudService.saveIntimacyLog(
-                        objectId: objectId,
-                        date: dateStr,
-                        mood: selectedMood,
-                        rating: selectedRating,
-                        note: noteController.text.trim(),
-                      );
-                      // 刷新
-                      await _loadCloudData();
-                    } catch (e) {
-                      debugPrint('保存亲密记录失败: $e');
-                    } finally {
-                      setState(() => _isLoading = false);
-                    }
-                  },
-                  child: const Text('保存'),
-                ),
-              ],
-            );
-          },
-        );
-      },
     );
   }
 }

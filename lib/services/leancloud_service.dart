@@ -45,6 +45,36 @@ class LeanCloudService {
     }
   }
 
+  /// 检查邮箱是否已注册
+  static Future<String> checkEmailExists(String email) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.checkEmailExists(email);
+      case DbType.local:
+        return 'not_found'; // 本地模式总是新注册
+      default:
+        return 'not_found';
+    }
+  }
+
+  /// 通过伴侣邮箱验证后重置密码
+  static Future<String> resetPasswordWithPartnerEmail({
+    required String myEmail,
+    required String partnerEmail,
+    required String newPassword,
+  }) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.resetPasswordWithPartnerEmail(
+          myEmail: myEmail,
+          partnerEmail: partnerEmail,
+          newPassword: newPassword,
+        );
+      default:
+        throw Exception('当前存储模式不支持找回密码功能');
+    }
+  }
+
   /// 获取本地保存的 Relation
   static Future<Map<String, dynamic>?> getLocalRelation() async {
     switch (DbConfigService.currentDbType) {
@@ -424,6 +454,20 @@ class LeanCloudService {
       case DbType.leancloud:
       default:
         return _LeanCloudRealImpl.fetchIntimacyLogs();
+    }
+  }
+
+  static Future<void> toggleIntimacyLog(String dateString, bool isIntimacy) async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.supabase:
+        return SupabaseService.toggleIntimacyLog(dateString, isIntimacy);
+      case DbType.webdav:
+        return;
+      case DbType.local:
+        return LocalDbService.toggleIntimacyLog(dateString, isIntimacy);
+      case DbType.leancloud:
+      default:
+        return;
     }
   }
 

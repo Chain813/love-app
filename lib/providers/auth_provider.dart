@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/leancloud_service.dart';
-import '../services/wechat_service.dart';
 
 /// 用户认证状态管理 Provider
 class AuthProvider extends ChangeNotifier {

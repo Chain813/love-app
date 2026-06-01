@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/db_config_service.dart';
+import '../../services/leancloud_service.dart';
 
 /// 登录页面 - 极简苹果风/玻璃拟态
 class LoginScreen extends StatefulWidget {
@@ -13,39 +15,234 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
+  final _confirmEmailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
+  // 页面状态：checking → 检查邮箱中，login → 登录，register → 注册
+  String _pageState = 'initial';
+  bool _isLoading = false;
+  String? _error;
 
   @override
   void dispose() {
     _emailController.dispose();
+    _confirmEmailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin(BuildContext context) async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _checkEmail() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() => _error = '请输入邮箱');
+      return;
+    }
 
+    // 管理员直接进入密码输入
+    if (email == _adminEmail) {
+      setState(() {
+        _pageState = 'login';
+        _error = null;
+      });
+      return;
+    }
+
+    if (!email.contains('@')) {
+      setState(() => _error = '请输入有效的邮箱地址');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final result = await LeanCloudService.checkEmailExists(email);
+
+    setState(() {
+      _isLoading = false;
+      if (result == 'exists') {
+        _pageState = 'login';
+      } else if (result == 'not_found') {
+        _pageState = 'register';
+      } else {
+        _error = '网络错误，请稍后再试';
+      }
+    });
+  }
+
+  // 管理员凭证
+  static const String _adminEmail = 'admin';
+  static const String _adminPassword = '123456';
+
+  Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
+    // 管理员凭证优先检测（跳过邮箱格式验证）
+    if (email == _adminEmail && password == _adminPassword) {
+      if (mounted) context.push('/dev-admin?auth=1');
+      return;
+    }
+
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
     final success = await context.read<AuthProvider>().loginWithPassword(email, password);
+
+    setState(() => _isLoading = false);
+
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('欢迎回来 ✨'),
+          content: const Text('欢迎回来 ✨'),
           backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
+    } else {
+      setState(() {
+        _error = context.read<AuthProvider>().error ?? '登录失败';
+      });
     }
   }
 
-  void _showDatabaseConfigDialog(BuildContext context) {
-    showModalBottomSheet(
+  Future<void> _handleRegister() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final email = _emailController.text.trim();
+    final confirmEmail = _confirmEmailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email != confirmEmail) {
+      setState(() => _error = '两次输入的邮箱不一致');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final success = await context.read<AuthProvider>().loginWithPassword(email, password);
+
+    setState(() => _isLoading = false);
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('注册成功 ✨'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+        ),
+      );
+    } else {
+      setState(() {
+        _error = context.read<AuthProvider>().error ?? '注册失败';
+      });
+    }
+  }
+
+  void _showForgotPasswordDialog() {
+    final partnerEmailController = TextEditingController();
+    String? dialogError;
+    bool dialogLoading = false;
+
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const DatabaseConfigBottomSheet(),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Row(
+                children: [
+                  Icon(Icons.lock_reset_rounded, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('找回密码'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '请输入您伴侣的邮箱地址进行验证，验证通过后将发送密码重置邮件至您的邮箱。',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93), height: 1.5),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: partnerEmailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      hintText: '伴侣的邮箱地址',
+                      prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                      filled: true,
+                      fillColor: const Color(0xFFF2F2F7),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                  if (dialogError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(dialogError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: dialogLoading
+                      ? null
+                      : () async {
+                          setDialogState(() {
+                            dialogLoading = true;
+                            dialogError = null;
+                          });
+
+                          try {
+                            final msg = await LeanCloudService.resetPasswordWithPartnerEmail(
+                              myEmail: _emailController.text.trim(),
+                              partnerEmail: partnerEmailController.text.trim(),
+                              newPassword: '', // 不使用，由邮件触发
+                            );
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(msg), backgroundColor: Colors.green),
+                              );
+                            }
+                          } catch (e) {
+                            setDialogState(() {
+                              dialogError = e.toString().replaceAll('Exception: ', '');
+                            });
+                          } finally {
+                            setDialogState(() => dialogLoading = false);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: dialogLoading
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('验证'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -64,81 +261,49 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: 60),
 
-                  // Logo 动画心形 — 弹入 + 持续呼吸脉冲
+                  // Logo
                   TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0.0, end: 1.0),
                     duration: const Duration(milliseconds: 800),
                     curve: Curves.elasticOut,
                     builder: (context, value, child) {
-                      return Transform.scale(
-                        scale: value,
-                        child: child,
-                      );
+                      return Transform.scale(scale: value, child: child);
                     },
                     child: _BreathingLogo(color: theme.colorScheme.primary),
                   ),
 
                   const SizedBox(height: 20),
-
-                  // 应用名称
-                  const Text(
-                    '虫米',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 4,
-                      color: Color(0xFF1C1C1E),
-                    ),
-                  ),
-
+                  const Text('虫米', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4, color: Color(0xFF1C1C1E))),
                   const SizedBox(height: 6),
-
-                  // 副标题
-                  const Text(
-                    '记录恋爱的点点滴滴',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF8E8E93),
-                      letterSpacing: 2,
-                    ),
-                  ),
-
+                  const Text('记录恋爱的点点滴滴', style: TextStyle(fontSize: 14, color: Color(0xFF8E8E93), letterSpacing: 2)),
                   const SizedBox(height: 50),
 
-                  // 登录卡片
+                  // 表单卡片
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
-                        )
-                      ],
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 24, offset: const Offset(0, 10))],
                     ),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            '开启专属空间',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1C1C1E),
-                            ),
+                          // 标题
+                          Text(
+                            _pageState == 'register' ? '注册新账号' : '登录',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            '首次登录将自动注册，需验证邮箱。',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF8E8E93),
-                            ),
+                          Text(
+                            _pageState == 'register'
+                                ? '首次使用，请确认邮箱后注册。'
+                                : _pageState == 'login'
+                                    ? '请输入密码登录。'
+                                    : '输入邮箱开始。',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
                           ),
                           const SizedBox(height: 20),
 
@@ -146,95 +311,120 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
+                            enabled: _pageState == 'initial',
                             decoration: InputDecoration(
                               hintText: '邮箱地址',
                               prefixIcon: const Icon(Icons.email_outlined),
                               filled: true,
-                              fillColor: const Color(0xFFF2F2F7),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
+                              fillColor: _pageState == 'initial' ? const Color(0xFFF2F2F7) : Colors.grey.shade100,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                               contentPadding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                             validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return '请输入邮箱';
-                              }
-                              if (!value.contains('@') || !value.contains('.')) {
-                                return '请输入有效的邮箱地址';
-                              }
+                              if (value == null || value.trim().isEmpty) return '请输入邮箱';
+                              if (!value.contains('@') || !value.contains('.')) return '请输入有效的邮箱地址';
                               return null;
                             },
                           ),
-                          const SizedBox(height: 16),
 
-                          // 密码输入
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: true,
-                            decoration: InputDecoration(
-                              hintText: '密码',
-                              prefixIcon: const Icon(Icons.lock_outline_rounded),
-                              filled: true,
-                              fillColor: const Color(0xFFF2F2F7),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
+                          // 注册时显示确认邮箱
+                          if (_pageState == 'register') ...[
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _confirmEmailController,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: InputDecoration(
+                                hintText: '确认邮箱地址',
+                                prefixIcon: const Icon(Icons.email_outlined),
+                                filled: true,
+                                fillColor: const Color(0xFFF2F2F7),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) return '请再次输入邮箱';
+                                if (value.trim() != _emailController.text.trim()) return '两次输入的邮箱不一致';
+                                return null;
+                              },
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return '请输入密码';
-                              }
-                              if (value.length < 6) {
-                                return '密码长度不能少于 6 位';
-                              }
-                              return null;
-                            },
-                          ),
+                          ],
+
+                          // 登录/注册时显示密码
+                          if (_pageState == 'login' || _pageState == 'register') ...[
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                hintText: '密码',
+                                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                filled: true,
+                                fillColor: const Color(0xFFF2F2F7),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) return '请输入密码';
+                                if (value.length < 6) return '密码长度不能少于 6 位';
+                                return null;
+                              },
+                            ),
+                          ],
 
                           const SizedBox(height: 24),
 
-                          // 登录按钮
-                          Consumer<AuthProvider>(
-                            builder: (context, authProvider, child) {
-                              return SizedBox(
-                                width: double.infinity,
-                                height: 48,
-                                child: ElevatedButton(
-                                  onPressed: authProvider.isLoading
-                                      ? null
-                                      : () => _handleLogin(context),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: theme.colorScheme.primary,
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                          // 按钮
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () {
+                                      if (_pageState == 'initial') {
+                                        _checkEmail();
+                                      } else if (_pageState == 'login') {
+                                        _handleLogin();
+                                      } else {
+                                        _handleRegister();
+                                      }
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.colorScheme.primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                                  : Text(
+                                      _pageState == 'initial'
+                                          ? '下一步'
+                                          : _pageState == 'login'
+                                              ? '登录'
+                                              : '注册',
+                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                                     ),
-                                  ),
-                                  child: authProvider.isLoading
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : const Text(
-                                          '进入专属空间',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                ),
-                              );
-                            },
+                            ),
                           ),
+
+                          // 返回按钮（登录/注册状态）
+                          if (_pageState != 'initial') ...[
+                            const SizedBox(height: 12),
+                            Center(
+                              child: TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _pageState = 'initial';
+                                    _error = null;
+                                    _passwordController.clear();
+                                    _confirmEmailController.clear();
+                                  });
+                                },
+                                child: const Text('返回', style: TextStyle(color: Color(0xFF8E8E93))),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -243,52 +433,49 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 24),
 
                   // 错误提示
-                  Consumer<AuthProvider>(
-                    builder: (context, authProvider, child) {
-                      if (authProvider.error != null) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFEBF0),
-                            borderRadius: BorderRadius.circular(12),
+                  if (_error != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFEBF0),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  authProvider.error!,
-                                  style: const TextStyle(
-                                    color: Colors.redAccent,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
+                        ],
+                      ),
+                    ),
+
+                  // 找回密码入口（登录状态 + 密码错误时显示）
+                  if (_pageState == 'login' && _error != null && _error!.contains('密码')) ...[
+                    const SizedBox(height: 12),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _showForgotPasswordDialog,
+                        icon: const Icon(Icons.help_outline_rounded, size: 16),
+                        label: const Text('忘记密码？通过伴侣验证找回'),
+                        style: TextButton.styleFrom(foregroundColor: Colors.orange.shade700),
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 40),
-
-                  // 底部条款
                   const Text(
                     '登录即表示同意《用户协议》与《隐私权政策》\n所有数据均妥善存储于情侣专属加密空间中。',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFFC7C7CC),
-                      height: 1.5,
-                    ),
+                    style: TextStyle(fontSize: 11, color: Color(0xFFC7C7CC), height: 1.5),
                     textAlign: TextAlign.center,
                   ),
                 ],
               ),
             ),
           ),
+
+          // 数据库配置按钮
           Positioned(
             top: 20,
             right: 20,
@@ -297,13 +484,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    )
-                  ],
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))],
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.dns_rounded),
@@ -316,6 +497,15 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showDatabaseConfigDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const DatabaseConfigBottomSheet(),
     );
   }
 }
@@ -515,7 +705,7 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
       case DbType.local:
         return '纯本地离线单机';
       case DbType.leancloud:
-        return 'LeanCloud / TDS';
+        return 'LeanCloud / TDS 数据库';
     }
   }
 
@@ -552,7 +742,7 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // 选择器
           const Text(
             '选择存储数据库类型',
@@ -749,4 +939,3 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
     );
   }
 }
-

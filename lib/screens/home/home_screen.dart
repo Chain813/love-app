@@ -276,6 +276,16 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
   String _periodStatusTip = '';
   Color _periodStatusColor = Colors.grey;
 
+  // 最新动态数据
+  String _latestDiaryContent = '暂无日记';
+  String _latestDiaryWeather = '';
+  int _photoCount = 0;
+  int _wishCompleted = 0;
+  int _wishTotal = 0;
+  DateTime? _anniversaryDate;
+  String _anniversaryTitle = '在一起纪念日';
+  String _anniversaryIcon = '🎂';
+
   // 滚动数字动画
   late AnimationController _countUpController;
   late Animation<double> _countUpAnimation;
@@ -375,6 +385,42 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
           }
         }
       }
+
+      // 加载最新日记
+      try {
+        final diaries = await LeanCloudService.fetchDiaries();
+        if (diaries.isNotEmpty) {
+          final latest = diaries.first;
+          _latestDiaryContent = (latest['content'] as String?) ?? '暂无内容';
+          _latestDiaryWeather = (latest['weather'] as String?) ?? '';
+          // 截取前20个字符
+          if (_latestDiaryContent.length > 20) {
+            _latestDiaryContent = '${_latestDiaryContent.substring(0, 20)}...';
+          }
+        }
+      } catch (_) {}
+
+      // 加载心愿统计
+      try {
+        final wishes = await LeanCloudService.fetchWishes();
+        _wishTotal = wishes.length;
+        _wishCompleted = wishes.where((w) => w['completed'] == true).length;
+      } catch (_) {}
+
+      // 加载纪念日
+      try {
+        final anniversaries = await LeanCloudService.fetchAnniversaries();
+        if (anniversaries.isNotEmpty) {
+          final first = anniversaries.first;
+          _anniversaryTitle = (first['title'] as String?) ?? '纪念日';
+          _anniversaryIcon = (first['icon'] as String?) ?? '🎂';
+          final dateStr = first['date'] as String?;
+          if (dateStr != null) {
+            _anniversaryDate = DateTime.tryParse(dateStr);
+          }
+        }
+      } catch (_) {}
+
     } catch (e) {
       debugPrint('加载首页数据失败: $e');
     } finally {
@@ -830,22 +876,25 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                   title: '日记随笔',
                   color: const Color(0xFFFF9500),
                   icon: Icons.auto_stories_rounded,
-                  content: '今天天气：晴 ☀️\n“今天也是开心的一天...”',
+                  content: _latestDiaryWeather.isNotEmpty
+                      ? '$_latestDiaryWeather $_latestDiaryContent'
+                      : _latestDiaryContent,
                   onTap: () {
-                    // 触发底部导航栏的日记 Tab (由 HomeScreen 控制，这里导航即可)
+                    // 触发底部导航栏的日记 Tab
                   },
                 ),
               ),
               const SizedBox(width: 12),
-              // 右半边：悄悄话预览小组件 (紫色调)
+              // 右半边：心愿进度小组件 (紫色调)
               Expanded(
-                child: _buildInfoCard(
-                  title: '最新悄悄话',
+                child: _buildProgressCard(
+                  title: '相伴心愿',
                   color: const Color(0xFFAF52DE),
-                  icon: Icons.chat_bubble_rounded,
-                  content: '米米 的留言：\n“你在干嘛呢？🥰”',
+                  icon: Icons.star_rounded,
+                  completed: _wishCompleted,
+                  total: _wishTotal,
                   onTap: () {
-                    context.push('/chat');
+                    context.push('/wish');
                   },
                 ),
               ),
@@ -863,49 +912,73 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                   title: '恋爱合影',
                   color: const Color(0xFF007AFF),
                   icon: Icons.photo_library_rounded,
-                  content: '📷 最近上传了 1 张照片\n“去海边吹吹风...”',
+                  content: _photoCount > 0
+                      ? '📷 已上传 $_photoCount 张照片'
+                      : '📷 还没有照片，快去上传吧',
                   onTap: () {
                     // 触发底部导航栏的相册 Tab
                   },
                 ),
               ),
               const SizedBox(width: 12),
-              // 右半边：心愿清单进度小组件 (粉红调)
+              // 右半边：纪念日倒计时小组件 (粉红调)
               Expanded(
-                child: _buildProgressCard(
-                  title: '相伴心愿',
-                  color: const Color(0xFFFF6B9D),
-                  icon: Icons.star_rounded,
-                  completed: 6,
-                  total: 10,
-                  onTap: () {
-                    context.push('/wish');
-                  },
-                ),
+                child: _anniversaryDate != null
+                    ? _buildInfoCard(
+                        title: _anniversaryTitle,
+                        color: const Color(0xFFFF6B9D),
+                        icon: Icons.calendar_today_rounded,
+                        content: '$_anniversaryIcon ${_getAnniversaryCountdown()}',
+                        onTap: () {
+                          context.push('/anniversary');
+                        },
+                      )
+                    : _buildInfoCard(
+                        title: '纪念日',
+                        color: const Color(0xFFFF6B9D),
+                        icon: Icons.calendar_today_rounded,
+                        content: '还没有纪念日，快去添加吧',
+                        onTap: () {
+                          context.push('/anniversary');
+                        },
+                      ),
               ),
             ],
           ),
         ),
         const SizedBox(height: 12),
         // 纪念日倒计时小组件 (大条卡片)
-        FadeInUp(
-          duration: const Duration(milliseconds: 1000),
-          child: GestureDetector(
-            onTap: () {
-              context.push('/anniversary');
-            },
-            child: AnniversaryCard(
-              title: '在一起纪念日',
-              date: DateTime(DateTime.now().year, 12, 25),
-              icon: '🎂',
+        if (_anniversaryDate != null)
+          FadeInUp(
+            duration: const Duration(milliseconds: 1000),
+            child: GestureDetector(
+              onTap: () {
+                context.push('/anniversary');
+              },
+              child: AnniversaryCard(
+                title: _anniversaryTitle,
+                date: _anniversaryDate!,
+                icon: _anniversaryIcon,
+              ),
             ),
           ),
-        ),
       ],
     );
   }
 
   /// 卡片基本模板 — 带按下缩放反馈
+  String _getAnniversaryCountdown() {
+    if (_anniversaryDate == null) return '';
+    final now = DateTime.now();
+    var nextDate = DateTime(now.year, _anniversaryDate!.month, _anniversaryDate!.day);
+    if (nextDate.isBefore(now)) {
+      nextDate = DateTime(now.year + 1, _anniversaryDate!.month, _anniversaryDate!.day);
+    }
+    final daysLeft = nextDate.difference(now).inDays;
+    if (daysLeft == 0) return '就是今天！🎉';
+    return '还有 $daysLeft 天';
+  }
+
   Widget _buildInfoCard({
     required String title,
     required Color color,

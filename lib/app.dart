@@ -17,13 +17,13 @@ class ChongMiApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()..checkLoginStatus()),
         ChangeNotifierProvider(create: (_) => LocationProvider()),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
+      child: Consumer2<ThemeProvider, AuthProvider>(
+        builder: (context, themeProvider, authProvider, child) {
           return MaterialApp.router(
             title: '虫米',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.getTheme(themeProvider.currentTheme),
-            routerConfig: appRouter,
+            routerConfig: createRouter(authProvider),
           );
         },
       ),

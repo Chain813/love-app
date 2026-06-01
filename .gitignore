@@ -68,3 +68,10 @@ lib/config/keys.dart
 # Test temp directories
 test_hive/
 
+# Build & analysis logs
+build_error.log
+analysis.txt
+
+# Flutter generated
+.flutter-plugins
+.flutter-plugins-dependencies
