@@ -4,8 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
 import '../../services/leancloud_service.dart';
 
 /// 开发者管理后台 - 需要特定邮箱密码登录
@@ -71,33 +69,20 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
     });
   }
 
-  // 管理员邮箱白名单（在此添加允许访问后台的邮箱）
-  static const _adminEmails = <String>{
-    'admin@chongmi.com',
-    // 在此添加你的邮箱
-  };
-
   void _login() {
-    final prov = context.read<AuthProvider>();
-    if (!prov.isLoggedIn) {
-      setState(() => _error = '请先登录后再访问管理后台');
-      return;
-    }
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
-    // 校验管理员权限
-    final userEmail = prov.currentUser?['email'] as String? ?? '';
-    final username = prov.currentUser?['username'] as String? ?? '';
-    if (!_adminEmails.contains(userEmail) && !_adminEmails.contains(username)) {
-      setState(() => _error = '无权访问管理后台：您的账号不在管理员白名单中');
-      return;
+    if (email == 'admin' && password == '123456') {
+      setState(() {
+        _isLoggedIn = true;
+        _error = null;
+      });
+      _loadDashboardData();
+      _startAutoRefresh();
+    } else {
+      setState(() => _error = '管理员账号或密码错误');
     }
-
-    setState(() {
-      _isLoggedIn = true;
-      _error = null;
-    });
-    _loadDashboardData();
-    _startAutoRefresh();
   }
 
   Future<void> _loadDashboardData() async {
