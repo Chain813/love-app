@@ -71,21 +71,33 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
     });
   }
 
+  // 管理员邮箱白名单（在此添加允许访问后台的邮箱）
+  static const _adminEmails = <String>{
+    'admin@chongmi.com',
+    // 在此添加你的邮箱
+  };
+
   void _login() {
-    // 通过 AuthProvider 校验已登录用户身份
     final prov = context.read<AuthProvider>();
-    if (prov.isLoggedIn) {
-      setState(() {
-        _isLoggedIn = true;
-        _error = null;
-      });
-      _loadDashboardData();
-      _startAutoRefresh();
-    } else {
-      setState(() {
-        _error = '请先登录后再访问管理后台';
-      });
+    if (!prov.isLoggedIn) {
+      setState(() => _error = '请先登录后再访问管理后台');
+      return;
     }
+
+    // 校验管理员权限
+    final userEmail = prov.currentUser?['email'] as String? ?? '';
+    final username = prov.currentUser?['username'] as String? ?? '';
+    if (!_adminEmails.contains(userEmail) && !_adminEmails.contains(username)) {
+      setState(() => _error = '无权访问管理后台：您的账号不在管理员白名单中');
+      return;
+    }
+
+    setState(() {
+      _isLoggedIn = true;
+      _error = null;
+    });
+    _loadDashboardData();
+    _startAutoRefresh();
   }
 
   Future<void> _loadDashboardData() async {

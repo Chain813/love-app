@@ -2,10 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:extended_image/extended_image.dart';
 
-Widget buildLocalImage(String path, {BoxFit fit = BoxFit.cover, Widget? placeholder}) {
+Widget buildLocalImage(String path, {BoxFit fit = BoxFit.cover, Widget? placeholder, double? maxWidth}) {
   return ExtendedImage.file(
     File(path),
     fit: fit,
+    cacheWidth: maxWidth?.toInt(),
     loadStateChanged: (state) {
       if (state.extendedImageLoadState == LoadState.loading) {
         return placeholder ?? const SizedBox.shrink();
@@ -15,10 +16,11 @@ Widget buildLocalImage(String path, {BoxFit fit = BoxFit.cover, Widget? placehol
   );
 }
 
-Widget buildLocalImageZoom(String path, {BoxFit fit = BoxFit.contain}) {
+Widget buildLocalImageZoom(String path, {BoxFit fit = BoxFit.contain, double? maxWidth}) {
   return ExtendedImage.file(
     File(path),
     fit: fit,
+    cacheWidth: maxWidth?.toInt(),
     mode: ExtendedImageMode.gesture,
     initGestureConfigHandler: (state) {
       return GestureConfig(
