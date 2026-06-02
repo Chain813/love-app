@@ -11,8 +11,12 @@ class AppRoutes {
   static const String anniversary = '/anniversary';
   static const String wish = '/wish';
   static const String chat = '/chat';
-  static const String gameSelect = '/game/select';
+  static const String gameSelect = '/game';
   static const String gameRoom = '/game/room';
+  static const String period = '/period';
+  static const String location = '/location';
   static const String settings = '/settings';
   static const String themeSettings = '/settings/theme';
+  static const String admin = '/admin';
+  static const String devAdmin = '/dev-admin';
 }

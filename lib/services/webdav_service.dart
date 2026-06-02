@@ -81,15 +81,14 @@ class WebdavService {
 
   /// 确保 WebDAV 同步文件夹存在
   static Future<void> _createSyncDir() async {
-    try {
-      final client = http.Client();
-      final syncDirUrl = '$_webdavUrl/love_app_sync/';
-      final req = http.Request('MKCOL', Uri.parse(syncDirUrl))
-        ..headers.addAll(_headers);
-      final res = await client.send(req);
-      print('MKCOL love_app_sync response code: ${res.statusCode}');
-    } catch (e) {
-      print('MKCOL error: $e');
+    final client = http.Client();
+    final syncDirUrl = '$_webdavUrl/love_app_sync/';
+    final req = http.Request('MKCOL', Uri.parse(syncDirUrl))
+      ..headers.addAll(_headers);
+    final res = await client.send(req);
+    // 405 = 目录已存在，201 = 创建成功，均视为正常
+    if (res.statusCode != 201 && res.statusCode != 405) {
+      throw Exception('WebDAV 同步目录创建失败，状态码: ${res.statusCode}，请检查坚果云配置是否正确');
     }
   }
 
@@ -214,19 +213,31 @@ class WebdavService {
     }
   }
 
-  /// 发射爱心并云端同步递增
+  /// 发射爱心并云端同步递增（ETag 乐观锁重试，防止并发丢失）
   static Future<int> sendHeartbeat() async {
-    // 强制同步一次最新的计数
-    final relation = await checkPairStatus();
-    if (relation == null) return 0;
+    const maxRetries = 3;
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      // 每次重试前重新拉取最新云端数据
+      final relation = await checkPairStatus();
+      if (relation == null) return 0;
 
-    final newCount = (relation['heartbeat_count'] ?? 0) + 1;
-    relation['heartbeat_count'] = newCount;
-    
-    final box = await Hive.openBox('user');
-    await box.put('couple_relation', relation);
-    await _uploadFile('couple_relation.json', relation);
-    return newCount;
+      final newCount = (relation['heartbeat_count'] ?? 0) + 1;
+      relation['heartbeat_count'] = newCount;
+
+      final box = await Hive.openBox('user');
+      await box.put('couple_relation', relation);
+
+      final success = await _uploadFileWithLock('couple_relation.json', relation);
+      if (success) return newCount;
+
+      // 冲突，短暂等待后重试
+      if (attempt < maxRetries - 1) {
+        await Future.delayed(Duration(milliseconds: 200 * (attempt + 1)));
+      }
+    }
+    // 所有重试失败，返回当前本地计数
+    final localRel = await getLocalRelation();
+    return localRel?['heartbeat_count'] ?? 0;
   }
 
   static Future<void> deleteAccount() async {
@@ -240,24 +251,56 @@ class WebdavService {
   }
 
   // --- WebDAV 文件读写助手 ---
+
+  /// ETag 缓存 (按文件名)
+  static final Map<String, String> _etags = {};
+
+  /// 普通上传（无并发保护）
   static Future<void> _uploadFile(String fileName, dynamic data) async {
     try {
       final fileUrl = '$_webdavUrl/love_app_sync/$fileName';
       final bodyStr = jsonEncode(data);
-      await http.put(
+      final res = await http.put(
         Uri.parse(fileUrl),
         headers: _headers,
         body: utf8.encode(bodyStr),
-      );
+      ).timeout(const Duration(seconds: 10));
+      final etag = res.headers['etag'];
+      if (etag != null) _etags[fileName] = etag;
     } catch (e) {
       print("WebDAV upload $fileName failed: $e");
+    }
+  }
+
+  /// 带 ETag 乐观锁的上传，返回 true 表示成功，false 表示冲突需重试
+  static Future<bool> _uploadFileWithLock(String fileName, dynamic data) async {
+    try {
+      final fileUrl = '$_webdavUrl/love_app_sync/$fileName';
+      final bodyStr = jsonEncode(data);
+      final headers = Map<String, String>.from(_headers);
+      final cachedEtag = _etags[fileName];
+      if (cachedEtag != null) {
+        headers['If-Match'] = cachedEtag;
+      }
+      final res = await http.put(
+        Uri.parse(fileUrl),
+        headers: headers,
+        body: utf8.encode(bodyStr),
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 412) return false; // ETag 不匹配，冲突
+      final etag = res.headers['etag'];
+      if (etag != null) _etags[fileName] = etag;
+      return true;
+    } catch (e) {
+      print("WebDAV uploadWithLock $fileName failed: $e");
+      return false;
     }
   }
 
   static Future<dynamic> _downloadFile(String fileName) async {
     try {
       final fileUrl = '$_webdavUrl/love_app_sync/$fileName';
-      final res = await http.get(Uri.parse(fileUrl), headers: _headers);
+      final res = await http.get(Uri.parse(fileUrl), headers: _headers).timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         return jsonDecode(utf8.decode(res.bodyBytes));
       }
@@ -310,7 +353,6 @@ class WebdavService {
       merged.sort((a, b) => (b['date'] as String).compareTo(a['date'] as String)); // 日期倒序
 
       await localBox.put('list', merged);
-      await _uploadFile('diaries.json', merged);
       return merged;
     }
 
@@ -389,7 +431,6 @@ class WebdavService {
 
       final merged = _mergeLists(localList, remoteList);
       await localBox.put('list', merged);
-      await _uploadFile('wishes.json', merged);
       return merged;
     }
     return localList;
@@ -467,7 +508,6 @@ class WebdavService {
       final merged = _mergeLists(localList, remoteList);
       merged.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
       await localBox.put('list', merged);
-      await _uploadFile('anniversaries.json', merged);
       return merged;
     }
     return localList;
@@ -517,7 +557,6 @@ class WebdavService {
       final mergedList = merged.toList();
 
       await localBox.put('list', mergedList);
-      await _uploadFile('period_logs.json', mergedList);
       return mergedList;
     }
     return localList;
@@ -555,7 +594,6 @@ class WebdavService {
       merged.sort((a, b) => (b['date'] as String).compareTo(a['date'] as String));
 
       await localBox.put('list', merged);
-      await _uploadFile('intimacy_logs.json', merged);
       return merged;
     }
     return localList;

@@ -35,15 +35,14 @@ dependencies:
   like_button: ^2.0.8
 
   # 图片与布局增强
-  extended_image: any
-  waterfall_flow: any
+  extended_image: ^10.0.1
+  waterfall_flow: ^3.1.1
 
   # 日历与时间线
   table_calendar: ^3.1.2
   timeline_tile: ^2.0.0
 
-  # 图表分析
-  fl_chart: ^0.68.0
+  # 网络请求
   http: ^1.6.0
 
   # 定位与地图
@@ -55,6 +54,7 @@ dependencies:
   dio: ^5.7.0
   connectivity_plus: ^6.1.2
   json_annotation: ^4.9.0
+  freezed_annotation: ^2.4.4
 
   # 分享与外部链接
   share_plus: ^10.1.4
@@ -84,7 +84,6 @@ dev_dependencies:
   hive_generator: ^2.0.1
   build_runner: ^2.4.7
   json_serializable: ^6.8.0
-  freezed_annotation: ^2.4.4
   freezed: ^2.5.2
 
 flutter:

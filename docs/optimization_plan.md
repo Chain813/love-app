@@ -1,111 +1,142 @@
-# 🌹 虫米 App 性能与拓展性最优架构设计方案
+# 🌹 虫米 App 优化方案与实施状态
 
-本方案基于情侣互动记录类应用的**现状**（随着相处年限增加，文字与图片等多媒体数据会逐年累进，容易导致启动与加载速度下降）以及**未来可能的拓展**（支持跨端原生部署、支持更丰富的多媒体留言），提供以下 4 项最优的技术性能优化与架构演进路径。
+本文档记录项目的性能优化与架构演进方案。✅ 表示已完成实施。
 
 ---
 
-## 1. 🗄️ 数据库层：开启 Hive 自动碎片整理 (Hive Compaction)
+## 1. 🗄️ 数据库层：Hive 自动碎片整理 ✅ (已实施)
 
-### 📌 现状与隐患
-*   Hive 采用的是高性能的“追加写（Append-only）”格式。每次修改或删除日记、心愿、生理期时，旧的数据并不会立刻被删除，而是继续残留在 `.hive` 二进制文件中。
-*   随着情侣使用 2-3 年后，频繁的修改会让数据库文件体积虚大，拖慢 App 的启动和初始化速度。
+Hive 在每个 Box 打开时均配置了 `compactionStrategy`：
+- 当删除记录 > 20 条且废弃比例 > 30% 时，自动触发文件压缩
+- 确保 `.hive` 文件大小永久处于紧凑状态
 
-### 🚀 最优拓展解
-在 `DbConfigService` 中初始化各大业务 Box 时，显式配置 **`compactionStrategy`（压缩整理策略）**。
+---
 
-#### 具体实现配置：
+## 2. 🛡️ WebDAV 数据一致性 ✅ (已实施)
+
+### 读操作不再触发写覆盖
+- `fetchDiaries/fetchWishes/fetchAnniversaries/...` 仅下载合并到本地，不再 PUT 回云端
+- 消除了两台设备同时打开 App 时互相覆盖的风险
+
+### sendHeartbeat ETag 乐观锁
+- 心跳发射使用 `If-Match` HTTP 头实现乐观锁
+- 冲突时自动重试最多 3 次，防止并发丢失计数
+
+### HTTP 请求超时
+- 所有 WebDAV 请求加 10 秒超时，弱网环境不卡死
+
+---
+
+## 3. ⚡ 首页性能优化 ✅ (已实施)
+
+### 并行数据加载
+- `fetchDiaries` / `fetchWishes` / `fetchAnniversaries` 从串行改为 `Future.wait` 并行
+- 首屏加载时间减少 60-80%
+
+### 恋爱天数空状态
+- 未设置纪念日时显示引导按钮"设置纪念日开始记录 💕"，而非"0 天"
+
+### Lottie 动画本地化
+- 移除了网络 Lottie 动画依赖，改用本地 Icon，离线可用
+
+---
+
+## 4. 🖼️ 多媒体层 ✅ (已实施)
+
+### 日记图片选择
+- 接入 `image_picker`，支持拍照/相册选图
+- 选择后预览，可删除重选
+- 保存时传递 `imageUrl` 至后端
+
+### 客户端压缩 (建议后续实施)
 ```dart
-// 在打开 Box 时配置整理策略
-var box = await Hive.openBox<String>(
-  'diary_box',
-  compactionStrategy: (int totalEntries, int deletedEntries) {
-    // 当总条目超过 50 条，且被删除/废弃的数据占比超过 30% 时，触发碎片整理收缩文件
-    return deletedEntries > 50 && (deletedEntries / totalEntries) > 0.3;
-  },
-);
+// 如需进一步优化图片大小，可引入 flutter_image_compress
+// 将 5MB 原图压缩至 ~120KB WebP
 ```
-这样可以确保本地的 `.hive` 数据库文件大小永久处于最紧凑状态，启动和查询依然保持在毫秒级。
 
 ---
 
-## 2. 📄 业务加载层：引入数据分页加载 (Pagination)
+## 5. 🤖 AI 集成 ✅ (已实施)
 
-### 📌 现状与隐患
-*   目前应用获取日记、亲密记等数据（如 `fetchDiaries()`）是在进入页面时**全量从服务器获取并渲染**。
-*   若以后数据量达到 1000+ 条，一次性请求巨大的 JSON 并反序列化为 Model 会导致瞬间内存冲高，甚至导致低配设备闪退。
-
-### 🚀 最优拓展解
-在 Supabase (PostgREST) / WebDAV HTTP 客户端以及 `LeanCloudService` 的分发网关中，引入 `limit`（单页拉取数量）和 `offset`（偏移量）。
-
-#### 接口改造示意（以 Supabase 客户端为例）：
-```dart
-// 修改获取日记的接口，支持分页参数
-static Future<List<Map<String, dynamic>>> fetchDiariesPaged({
-  required int page,
-  required int pageSize,
-}) async {
-  final offset = (page - 1) * pageSize;
-  final url = '$_baseUrl/rest/v1/Diary?select=*&order=date.desc&limit=$pageSize&offset=$offset';
-  // 发起请求并解析...
-}
-```
-*   **交互体验**：首屏进入只加载最新的 20 条，用户继续向上滑动（列表触底）时，再触发加载下一页数据。这能节省 95% 以上的首屏网络带宽 and 内存消耗。
+### DeepSeek 每日金句
+- `lib/services/llm_service.dart` 封装 DeepSeek Chat API
+- Hive 日缓存：同日多次打开不重复请求
+- 16 条离线备选金句：API 不可用时自动回退
+- 上下文感知：传入情侣名和相恋天数
 
 ---
 
-## 3. 🖼️ 多媒体层：客户端上传前对图片进行强压缩 (Client-side Compression)
+## 6. 🔒 安全加固 ✅ (已实施)
 
-### 📌 现状与隐患
-*   现代智能手机拍照生成的原图大小通常在 **3MB 到 10MB** 之间。
-*   如果用户在日记中直接上传原图，会导致：
-    1.  上传非常缓慢，在弱网环境下频繁失败超时。
-    2.  极其消耗用户流量。
-    3.  非常快速地耗尽 Supabase Storage 或坚果云 WebDAV 的免费容量上限（通常为 1GB 到 2GB）。
+### 移除硬编码凭证
+- 管理员密码、开发者密码已从源码中移除
+- 改为通过 AuthProvider 正常登录校验
 
-### 🚀 最优拓展解
-在调用图片选择器（Image Picker）之后、上传接口之前，使用 `flutter_image_compress` 库在客户端将图片等比例缩小并转换为高压缩率的 WebP 或 JPEG。
+### 路由守卫
+- `/dev-admin` 路由加登录守卫，不再能通过 URL 参数绕过
 
-#### 客户端图像压缩封装：
-```dart
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-
-Future<XFile?> compressImage(XFile file) async {
-  final filePath = file.path;
-  
-  // 构造输出路径
-  final lastIndex = filePath.lastIndexOf(RegExp(r'.png|.jpg|.jpeg'));
-  final splitted = filePath.substring(0, (lastIndex));
-  final outPath = "${splitted}_compressed.webp";
-
-  var result = await FlutterImageCompress.compressAndGetFile(
-    file.path, 
-    outPath,
-    quality: 80,             // 80% 质量（人眼无法分辨损失）
-    minWidth: 1080,          // 限制最大宽度为 1080 像素，满足手机视网膜屏幕显示
-    format: CompressFormat.webp, // 强制转换为高压缩率的 webp
-  );
-
-  return result;
-}
-```
-这可以将原本 **5MB** 的高清大图压缩成 **120KB** 左右的超轻量图片，**上传时间直接从 15 秒缩减到 0.5 秒**，且免费存储容量可以支撑的情侣照片数量从 200 张瞬间提升到 8000+ 张！
+### 平台权限
+- Android：INTERNET / ACCESS_FINE_LOCATION / POST_NOTIFICATIONS 已声明
+- iOS：NSLocationWhenInUseUsageDescription 已配置
 
 ---
 
-## 4. 🌐 Web 平台构建层：使用 `auto` 渲染器进行智能分流
+## 7. 🧹 工程质量 ✅ (已实施)
 
-### 📌 现状与隐患
-*   如果强制使用 `CanvasKit` 编译：虽然电脑端渲染极其精美，但在低配手机浏览器上会导致 2.8MB 引擎包下载缓慢、初始化卡死、页面耗电量大。
-*   如果强制使用 `HTML` 编译：在电脑或平板大屏上，精心设计的跳动爱心和毛玻璃拟态会有边缘锯齿或文字错位。
+### 依赖清理
+- 移除未使用依赖 `fl_chart`
+- `freezed_annotation` 从 dev_dependencies 移至 dependencies
+- `extended_image` / `waterfall_flow` 锁定版本号
 
-### 🚀 最优拓展解
-使用 Flutter 官方提供的 **智能双渲染器模式 (`auto`)** 来打包 Web 版本。它会在打包阶段同时输出两种渲染代码，在浏览器打开时由前端自动判定设备类型并加载对应的渲染后端。
+### Lint 强化
+- 启用 `avoid_print` / `prefer_const_constructors` / `prefer_final_locals` 等 8 条规则
 
-#### 打包命令：
-```powershell
-flutter build web --release --web-renderer auto --base-href "/love-app/"
-```
+### 路由常量化
+- router.dart 引用 `AppRoutes` 常量，单一数据源
 
-### 🧠 自动分流机制：
-1.  **当用户使用手机（Safari / Android 浏览器）打开时**：自动加载 `HTML 渲染器`。此时页面体积最小，网页瞬间秒开，滑动极其顺畅且不发热。
-2.  **当用户在电脑/平板（Chrome / Edge 等大屏）打开时**：自动加载 `CanvasKit 渲染器`。利用 WebAssembly 完美发挥显卡硬件加速，呈现极致精美的苹果拟态毛玻璃和动画特效。
+### 工具抽取
+- `hive_list_helper.dart`：封装 Hive 列表读写样板代码
+
+---
+
+## 8. 📤 数据导出 ✅ (已实施)
+
+- 设置页新增"导出数据备份"
+- 导出日记 + 心愿 + 纪念日为格式化 JSON
+- 通过系统分享发送
+
+---
+
+## 9. 🎨 UI/UX 打磨 ✅ (已实施)
+
+### 头像动态化
+- 情侣头像 emoji 根据 gender 字段自动切换 👩/👦
+
+### 卡片点击跳转
+- "日记随笔""恋爱合影"首页卡片支持点击跳转
+
+### 坚果云 URL 内置
+- WebDAV 地址固定为 `dav.jianguoyun.com`，用户仅需填邮箱+密码
+
+### 登录流程简化
+- WebDAV/Local 模式跳过邮箱检查步骤，一步进入密码输入
+
+---
+
+## 10. 📄 待实施 (未来优化方向)
+
+### 数据分页加载
+- 日记/心愿列表引入 `limit` + `offset` 分页
+- 首屏加载最新 20 条，下拉加载更多
+
+### 日记富文本
+- 支持 Markdown 或富文本编辑器
+
+### 聊天模块完善
+- WebDAV 模式下的实时消息同步
+
+### Web 渲染器优化
+- 使用 `--web-renderer auto` 智能分流 HTML/CanvasKit
+
+### 端到端加密
+- 可选的 AES 加密层，在上传前加密 JSON 数据

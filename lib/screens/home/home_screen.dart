@@ -15,9 +15,9 @@ import '../couple/chat/chat_screen.dart';
 import '../couple/game/game_select_screen.dart';
 import '../settings/settings_screen.dart';
 import 'package:animate_do/animate_do.dart';
-import 'package:lottie/lottie.dart';
 import 'package:like_button/like_button.dart';
 import '../../services/leancloud_service.dart';
+import '../../services/llm_service.dart';
 import '../auth/space_setup_screen.dart';
 import '../couple/period_intimacy_screen.dart';
 import '../location/couple_location_screen.dart';
@@ -286,6 +286,11 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
   String _anniversaryTitle = '在一起纪念日';
   String _anniversaryIcon = '🎂';
 
+  // 每日金句
+  String _dailyQuote = '';
+  String _dailyQuoteAuthor = '';
+  bool _quoteLoading = true;
+
   // 滚动数字动画
   late AnimationController _countUpController;
   late Animation<double> _countUpAnimation;
@@ -386,40 +391,15 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
         }
       }
 
-      // 加载最新日记
-      try {
-        final diaries = await LeanCloudService.fetchDiaries();
-        if (diaries.isNotEmpty) {
-          final latest = diaries.first;
-          _latestDiaryContent = (latest['content'] as String?) ?? '暂无内容';
-          _latestDiaryWeather = (latest['weather'] as String?) ?? '';
-          // 截取前20个字符
-          if (_latestDiaryContent.length > 20) {
-            _latestDiaryContent = '${_latestDiaryContent.substring(0, 20)}...';
-          }
-        }
-      } catch (_) {}
+      // 并行加载日记预览、心愿统计、纪念日
+      await Future.wait([
+        _loadDiaryPreview(),
+        _loadWishStats(),
+        _loadAnniversaryPreview(),
+      ]).catchError((_) {});
 
-      // 加载心愿统计
-      try {
-        final wishes = await LeanCloudService.fetchWishes();
-        _wishTotal = wishes.length;
-        _wishCompleted = wishes.where((w) => w['completed'] == true).length;
-      } catch (_) {}
-
-      // 加载纪念日
-      try {
-        final anniversaries = await LeanCloudService.fetchAnniversaries();
-        if (anniversaries.isNotEmpty) {
-          final first = anniversaries.first;
-          _anniversaryTitle = (first['title'] as String?) ?? '纪念日';
-          _anniversaryIcon = (first['icon'] as String?) ?? '🎂';
-          final dateStr = first['date'] as String?;
-          if (dateStr != null) {
-            _anniversaryDate = DateTime.tryParse(dateStr);
-          }
-        }
-      } catch (_) {}
+      // 加载每日金句（异步，不阻塞首页渲染）
+      _loadDailyQuote();
 
     } catch (e) {
       debugPrint('加载首页数据失败: $e');
@@ -427,6 +407,75 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
       if (mounted) {
         setState(() => _isLoading = false);
         _countUpController.forward(from: 0.0);
+      }
+    }
+  }
+
+  Future<void> _loadDiaryPreview() async {
+    try {
+      final diaries = await LeanCloudService.fetchDiaries();
+      if (diaries.isNotEmpty) {
+        final latest = diaries.first;
+        _latestDiaryContent = (latest['content'] as String?) ?? '暂无内容';
+        _latestDiaryWeather = (latest['weather'] as String?) ?? '';
+        if (_latestDiaryContent.length > 20) {
+          _latestDiaryContent = '${_latestDiaryContent.substring(0, 20)}...';
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadWishStats() async {
+    try {
+      final wishes = await LeanCloudService.fetchWishes();
+      _wishTotal = wishes.length;
+      _wishCompleted = wishes.where((w) => w['completed'] == true).length;
+    } catch (_) {}
+  }
+
+  Future<void> _loadAnniversaryPreview() async {
+    try {
+      final anniversaries = await LeanCloudService.fetchAnniversaries();
+      if (anniversaries.isNotEmpty) {
+        final first = anniversaries.first;
+        _anniversaryTitle = (first['title'] as String?) ?? '纪念日';
+        _anniversaryIcon = (first['icon'] as String?) ?? '🎂';
+        final dateStr = first['date'] as String?;
+        if (dateStr != null) {
+          _anniversaryDate = DateTime.tryParse(dateStr);
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// 加载每日金句（LLM 生成 + 缓存）
+  Future<void> _loadDailyQuote() async {
+    try {
+      // 构建上下文
+      String? coupleName;
+      if (_relation != null) {
+        final u1 = _relation!['user1_name'] as String? ?? '';
+        final u2 = _relation!['user2_name'] as String? ?? '';
+        if (u1.isNotEmpty && u2.isNotEmpty) {
+          coupleName = '$u1 & $u2';
+        }
+      }
+
+      final result = await LlmService.getDailyQuote(
+        coupleName: coupleName,
+        loveDays: _loveDays > 0 ? _loveDays : null,
+      );
+      if (mounted) {
+        setState(() {
+          _dailyQuote = result['quote'] ?? '';
+          _dailyQuoteAuthor = result['author'] ?? '';
+          _quoteLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('加载金句失败: $e');
+      if (mounted) {
+        setState(() => _quoteLoading = false);
       }
     }
   }
@@ -558,6 +607,10 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
   Widget _buildCoupleHeader(ThemeData theme) {
     final String user1Name = _relation?['user1_name'] ?? '';
     final String user2Name = _relation?['user2_name'] ?? '';
+    final user1Gender = _relation?['user1_gender'] as String? ?? 'female';
+    final user2Gender = _relation?['user2_gender'] as String? ?? 'male';
+    final user1Emoji = user1Gender == 'female' ? '👩' : '👦';
+    final user2Emoji = user2Gender == 'female' ? '👩' : '👦';
     final String coupleTitle = (user1Name.isNotEmpty && user2Name.isNotEmpty)
         ? '$user1Name & $user2Name'
         : '专属情侣空间';
@@ -590,8 +643,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                         )
                       ],
                     ),
-                    child: const Center(
-                      child: Text('👩', style: TextStyle(fontSize: 22)),
+                    child: Center(
+                      child: Text(user1Emoji, style: const TextStyle(fontSize: 22)),
                     ),
                   ),
                 ),
@@ -605,17 +658,7 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-                  child: Center(
-                    child: Lottie.network(
-                      'https://assets10.lottiefiles.com/packages/lf20_vt18g1mo.json',
-                      width: 28,
-                      height: 28,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(Icons.favorite_rounded, color: theme.colorScheme.primary, size: 18);
-                      },
-                    ),
-                  ),
+                  child: Icon(Icons.favorite_rounded, color: theme.colorScheme.primary, size: 18),
                 ),
               ),
               Positioned(
@@ -638,8 +681,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                         )
                       ],
                     ),
-                    child: const Center(
-                      child: Text('👦', style: TextStyle(fontSize: 22)),
+                    child: Center(
+                      child: Text(user2Emoji, style: const TextStyle(fontSize: 22)),
                     ),
                   ),
                 ),
@@ -797,53 +840,66 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              AnimatedBuilder(
-                animation: _countUpAnimation,
-                builder: (context, child) {
-                  final displayDays = (_loveDays * _countUpAnimation.value).round();
-                  return Text(
-                    '$displayDays',
-                    style: TextStyle(
-                      fontSize: 56,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -2,
-                      color: theme.colorScheme.onSurface,
-                      height: 1.0,
+          if (_loveDays > 0) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                AnimatedBuilder(
+                  animation: _countUpAnimation,
+                  builder: (context, child) {
+                    final displayDays = (_loveDays * _countUpAnimation.value).round();
+                    return Text(
+                      '$displayDays',
+                      style: TextStyle(
+                        fontSize: 56,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -2,
+                        color: theme.colorScheme.onSurface,
+                        height: 1.0,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 6),
+                const Text('天', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF8E8E93))),
+              ],
+            ),
+            const SizedBox(height: 10),
+            AnimatedBuilder(
+              animation: _countUpAnimation,
+              builder: (context, child) {
+                final displayMetDays = (_firstMetDays * _countUpAnimation.value).round();
+                return Text(
+                  '初识至今已经 $displayMetDays 天 🌟',
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF8E8E93), fontWeight: FontWeight.w600),
+                );
+              },
+            ),
+          ] else ...[
+            GestureDetector(
+              onTap: () => context.push('/settings'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.edit_calendar_rounded, size: 18, color: theme.colorScheme.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      '设置纪念日开始记录 💕',
+                      style: TextStyle(fontSize: 14, color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(width: 6),
-              const Text(
-                '天',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF8E8E93),
+                  ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          AnimatedBuilder(
-            animation: _countUpAnimation,
-            builder: (context, child) {
-              final displayMetDays = (_firstMetDays * _countUpAnimation.value).round();
-              return Text(
-                '初识至今已经 $displayMetDays 天 🌟',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF8E8E93),
-                  fontWeight: FontWeight.w600,
-                ),
-              );
-            },
-          ),
+            ),
+          ],
         ],
       ),
     );
@@ -879,9 +935,7 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                   content: _latestDiaryWeather.isNotEmpty
                       ? '$_latestDiaryWeather $_latestDiaryContent'
                       : _latestDiaryContent,
-                  onTap: () {
-                    // 触发底部导航栏的日记 Tab
-                  },
+                  onTap: () => context.push('/diary'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -915,9 +969,7 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                   content: _photoCount > 0
                       ? '📷 已上传 $_photoCount 张照片'
                       : '📷 还没有照片，快去上传吧',
-                  onTap: () {
-                    // 触发底部导航栏的相册 Tab
-                  },
+                  onTap: () => context.push('/photo'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1126,8 +1178,59 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
     );
   }
 
-  /// 每日寄语卡片 (Love Oath/Vows) — 带渐变装饰条
+  /// 每日寄语卡片 (Love Oath/Vows) — 带渐变装饰条，LLM 生成 + 本地缓存
   Widget _buildLoveVowCard(ThemeData theme) {
+    // 金句加载中显示骨架
+    if (_quoteLoading) {
+      return Container(
+        width: double.infinity,
+        height: 80,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.primary.withOpacity(0.3),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '每日一签',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E8E93)),
+                  ),
+                  SizedBox(height: 8),
+                  Text('✨ 正在为你生成今日金句...', style: TextStyle(fontSize: 13, color: Color(0xFFC7C7CC))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final quote = _dailyQuote.isNotEmpty
+        ? _dailyQuote
+        : '爱不是寻找一个完美的人，而是学会用完美的眼光去欣赏一个不完美的人。';
+    final author = _dailyQuoteAuthor;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -1161,22 +1264,29 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '每日一签',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF8E8E93),
-                    ),
+                  Row(
+                    children: [
+                      const Text(
+                        '每日一签',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E8E93)),
+                      ),
+                      if (author.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '— $author',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFFC7C7CC), fontStyle: FontStyle.italic),
+                        ),
+                      ],
+                    ],
                   ),
-                  SizedBox(height: 6),
+                  const SizedBox(height: 6),
                   Text(
-                    '“爱不是寻找一个完美的人，而是学会用完美的眼光去欣赏一个不完美的人。”',
-                    style: TextStyle(
+                    '“$quote”',
+                    style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF1C1C1E),
                       height: 1.5,

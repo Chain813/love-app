@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/db_config_service.dart';
 import '../../services/leancloud_service.dart';
@@ -39,10 +38,11 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // 管理员直接进入密码输入
-    if (email == _adminEmail) {
+    // WebDAV / Local 模式：跳过邮箱检查，直接进入密码输入
+    final dbType = DbConfigService.currentDbType;
+    if (dbType == DbType.webdav || dbType == DbType.local) {
       setState(() {
-        _pageState = 'login';
+        _pageState = dbType == DbType.webdav ? 'login' : 'register';
         _error = null;
       });
       return;
@@ -72,19 +72,11 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  // 管理员凭证
-  static const String _adminEmail = 'admin';
-  static const String _adminPassword = '123456';
+  // 开发者后台入口（通过正常 Supabase/WebDAV 账号登录后访问）
 
   Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-
-    // 管理员凭证优先检测（跳过邮箱格式验证）
-    if (email == _adminEmail && password == _adminPassword) {
-      if (mounted) context.push('/dev-admin?auth=1');
-      return;
-    }
 
     if (!_formKey.currentState!.validate()) return;
 
@@ -601,8 +593,7 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
   final _supaUrlController = TextEditingController();
   final _supaKeyController = TextEditingController();
 
-  // WebDAV
-  final _webdavUrlController = TextEditingController();
+  // WebDAV（坚果云地址已内置）
   final _webdavUserController = TextEditingController();
   final _webdavPwdController = TextEditingController();
 
@@ -619,7 +610,6 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
     _supaUrlController.text = DbConfigService.supabaseUrl;
     _supaKeyController.text = DbConfigService.supabaseAnonKey;
 
-    _webdavUrlController.text = DbConfigService.webdavUrl;
     _webdavUserController.text = DbConfigService.webdavUser;
     _webdavPwdController.text = DbConfigService.webdavPassword;
 
@@ -632,7 +622,6 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
   void dispose() {
     _supaUrlController.dispose();
     _supaKeyController.dispose();
-    _webdavUrlController.dispose();
     _webdavUserController.dispose();
     _webdavPwdController.dispose();
     _lcIdController.dispose();
@@ -653,7 +642,7 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
       );
     } else if (_selectedType == DbType.webdav) {
       await DbConfigService.saveWebdavConfig(
-        url: _webdavUrlController.text.trim(),
+        url: 'https://dav.jianguoyun.com/dav/',
         user: _webdavUserController.text.trim(),
         password: _webdavPwdController.text.trim(),
       );
@@ -692,8 +681,8 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
       ),
     );
 
-    // 模拟本地自动登录
-    await context.read<AuthProvider>().loginWithPassword('local@chongmi.com', '123456');
+    // 本地模式免密登录
+    await context.read<AuthProvider>().loginWithPassword('local@love.app', 'loveapp2024');
   }
 
   String _getDbTypeName(DbType type) {
@@ -813,39 +802,54 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
               style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
             ),
           ] else if (_selectedType == DbType.webdav) ...[
-            const Text('WebDAV 同步参数 (如坚果云)', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _webdavUrlController,
-              decoration: const InputDecoration(
-                labelText: 'WebDAV 服务器地址',
-                border: OutlineInputBorder(),
-                isDense: true,
+            // 坚果云地址内置，无需用户填写
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F2F7),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.cloud_done_rounded, size: 16, color: Colors.green.shade600),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '坚果云 WebDAV · dav.jianguoyun.com',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             TextField(
               controller: _webdavUserController,
+              keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
-                labelText: '账号 (电子邮箱)',
+                labelText: '坚果云账号 (电子邮箱)',
+                hintText: 'your@email.com',
                 border: OutlineInputBorder(),
                 isDense: true,
+                prefixIcon: Icon(Icons.email_outlined, size: 20),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _webdavPwdController,
+              obscureText: true,
               decoration: const InputDecoration(
                 labelText: '应用授权密码',
+                hintText: '在坚果云安全设置中生成',
                 border: OutlineInputBorder(),
                 isDense: true,
+                prefixIcon: Icon(Icons.lock_outline_rounded, size: 20),
               ),
-              obscureText: true,
             ),
             const SizedBox(height: 8),
             const Text(
-              '提示：使用 WebDAV 双方登录相同账号即可自动进行数据去重合并同步，完全不依赖第三方数据库服务器。',
-              style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+              '双方使用同一坚果云账号登录即可自动同步。应用密码非坚果云登录密码，请在坚果云网页版 → 安全设置 → 第三方应用管理 中生成。',
+              style: TextStyle(fontSize: 11, color: Color(0xFF8E8E93), height: 1.4),
             ),
           ] else if (_selectedType == DbType.local) ...[
             Container(

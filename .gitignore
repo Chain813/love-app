@@ -75,3 +75,7 @@ analysis.txt
 # Flutter generated
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# AI / IDE internal files
+.reasonix/
+.codegraph/

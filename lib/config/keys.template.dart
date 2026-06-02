@@ -12,4 +12,8 @@ class AppKeys {
 
   // 高德地图配置（Web端 JS API Key）
   static const String amapWebKey = 'YOUR_AMAP_WEB_KEY';
+
+  // DeepSeek LLM 配置（用于每日金句生成）
+  // 注册地址: https://platform.deepseek.com
+  static const String deepSeekApiKey = 'YOUR_DEEPSEEK_API_KEY';
 }

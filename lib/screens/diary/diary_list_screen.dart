@@ -34,9 +34,11 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
       });
     } catch (e) {
       debugPrint('获取日记列表失败: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('加载日记失败: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('加载日记失败，请检查网络连接后下拉刷新')),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }

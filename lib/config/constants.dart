@@ -11,6 +11,9 @@ class AppConstants {
   static const String wechatAppId = 'YOUR_WECHAT_APP_ID';
   static const String wechatUniversalLink = 'YOUR_UNIVERSAL_LINK';
 
+  // DeepSeek LLM 配置
+  static const String deepSeekApiKey = AppKeys.deepSeekApiKey;
+
   // 邀请码长度
   static const int inviteCodeLength = 6;
 

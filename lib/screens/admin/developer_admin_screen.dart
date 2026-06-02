@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/leancloud_service.dart';
 
 /// 开发者管理后台 - 需要特定邮箱密码登录
@@ -22,9 +24,7 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
   bool _isLoggedIn = false;
   String? _error;
 
-  // 管理员凭证（硬编码，仅开发者知晓）
-  static const String _adminEmail = 'admin@chongmi.com';
-  static const String _adminPassword = 'chongmi2026dev';
+  // 管理员登录通过 AuthProvider 校验（已登录用户直接访问）
 
   // 数据
   List<Map<String, dynamic>> _users = [];
@@ -72,10 +72,9 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
   }
 
   void _login() {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-
-    if (email == _adminEmail && password == _adminPassword) {
+    // 通过 AuthProvider 校验已登录用户身份
+    final prov = context.read<AuthProvider>();
+    if (prov.isLoggedIn) {
       setState(() {
         _isLoggedIn = true;
         _error = null;
@@ -84,7 +83,7 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
       _startAutoRefresh();
     } else {
       setState(() {
-        _error = '管理员邮箱或密码错误';
+        _error = '请先登录后再访问管理后台';
       });
     }
   }

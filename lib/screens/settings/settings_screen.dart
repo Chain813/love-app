@@ -7,7 +7,11 @@ import '../../providers/auth_provider.dart';
 import '../../services/db_config_service.dart';
 import '../../services/leancloud_service.dart';
 import '../auth/login_screen.dart';
+import 'dart:convert';
 import 'package:animate_do/animate_do.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import '../admin/admin_panel_screen.dart';
 import '../../utils/page_transitions.dart';
 
@@ -21,6 +25,45 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   int _adminTapCount = 0;
   DateTime? _lastAdminTapTime;
+
+  Future<void> _exportData(BuildContext context) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final diaries = await LeanCloudService.fetchDiaries();
+      final wishes = await LeanCloudService.fetchWishes();
+      final anniversaries = await LeanCloudService.fetchAnniversaries();
+
+      final export = {
+        'app': '虫米',
+        'version': '1.0.0',
+        'exportedAt': DateTime.now().toIso8601String(),
+        'diaries': diaries,
+        'wishes': wishes,
+        'anniversaries': anniversaries,
+      };
+
+      if (mounted) Navigator.pop(context);
+
+      final jsonStr = const JsonEncoder.withIndent('  ').convert(export);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/chongmi_backup_${DateTime.now().millisecondsSinceEpoch}.json');
+      await file.writeAsString(jsonStr);
+
+      await Share.shareXFiles([XFile(file.path)], text: '虫米数据备份');
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('导出失败，请稍后重试')),
+        );
+      }
+    }
+  }
 
   String _getCurrentDbName() {
     switch (DbConfigService.currentDbType) {
@@ -174,6 +217,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 数据导出
+          FadeInUp(
+            duration: const Duration(milliseconds: 550),
+            child: Container(
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                leading: const Icon(Icons.ios_share_rounded, color: Colors.blue),
+                title: const Text('导出数据备份'),
+                subtitle: const Text('导出日记、心愿、纪念日为 JSON 文件'),
+                onTap: () => _exportData(context),
               ),
             ),
           ),

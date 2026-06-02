@@ -59,6 +59,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>虫米需要访问您的位置以在情侣间共享实时位置</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>虫米需要在后台访问您的位置以持续更新共享位置</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

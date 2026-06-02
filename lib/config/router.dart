@@ -1,7 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../config/routes.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/pair_screen.dart';
 import '../screens/home/home_screen.dart';
@@ -22,7 +21,7 @@ import '../screens/admin/developer_admin_screen.dart';
 /// 全局路由配置
 /// 支持 Web 端浏览器前进/后退、URL 深链接
 GoRouter createRouter(AuthProvider auth) => GoRouter(
-  initialLocation: '/login',
+  initialLocation: AppRoutes.login,
   debugLogDiagnostics: false,
   refreshListenable: auth,
   redirect: (context, state) {
@@ -31,130 +30,99 @@ GoRouter createRouter(AuthProvider auth) => GoRouter(
     final isLoading = auth.isLoading;
     final path = state.matchedLocation;
 
-    // 管理员页面豁免重定向
-    if (path == '/dev-admin') return null;
+    // 管理员页面仅已登录用户可访问
+    if (path == AppRoutes.devAdmin) {
+      if (!isLoggedIn) return AppRoutes.login;
+      return null;
+    }
 
     // 加载中不跳转
     if (isLoading) return null;
 
     // 未登录 → 去登录页（已在登录页则不跳转）
-    if (!isLoggedIn && path != '/login') {
-      return '/login';
+    if (!isLoggedIn && path != AppRoutes.login) {
+      return AppRoutes.login;
     }
 
     // 已登录未配对 → 去配对页
-    if (isLoggedIn && !isPaired && path != '/pair') {
-      return '/pair';
+    if (isLoggedIn && !isPaired && path != AppRoutes.pair) {
+      return AppRoutes.pair;
     }
 
     // 已登录已配对 → 如果在登录/配对页则跳首页
-    if (isLoggedIn && isPaired && (path == '/login' || path == '/pair')) {
-      return '/home';
+    if (isLoggedIn && isPaired && (path == AppRoutes.login || path == AppRoutes.pair)) {
+      return AppRoutes.home;
     }
 
     return null;
   },
   routes: [
-    // 登录页
     GoRoute(
-      path: '/login',
+      path: AppRoutes.login,
       builder: (context, state) => const LoginScreen(),
     ),
-
-    // 配对页
     GoRoute(
-      path: '/pair',
+      path: AppRoutes.pair,
       builder: (context, state) => const PairScreen(),
     ),
-
-    // 首页（ShellRoute 包裹底部导航）
     GoRoute(
-      path: '/home',
+      path: AppRoutes.home,
       builder: (context, state) => const HomeScreen(),
     ),
-
-    // 日记列表
     GoRoute(
-      path: '/diary',
+      path: AppRoutes.diary,
       builder: (context, state) => const DiaryListScreen(),
     ),
-
-    // 日记编辑
     GoRoute(
-      path: '/diary/edit',
+      path: AppRoutes.diaryEdit,
       builder: (context, state) => const DiaryEditScreen(),
     ),
-
-    // 照片墙
     GoRoute(
-      path: '/photo',
+      path: AppRoutes.photo,
       builder: (context, state) => const PhotoWallScreen(),
     ),
-
-    // 纪念日
     GoRoute(
-      path: '/anniversary',
+      path: AppRoutes.anniversary,
       builder: (context, state) => const AnniversaryScreen(),
     ),
-
-    // 心愿清单
     GoRoute(
-      path: '/wish',
+      path: AppRoutes.wish,
       builder: (context, state) => const WishScreen(),
     ),
-
-    // 悄悄话
     GoRoute(
-      path: '/chat',
+      path: AppRoutes.chat,
       builder: (context, state) => const ChatScreen(),
     ),
-
-    // 游戏选择
     GoRoute(
-      path: '/game',
+      path: AppRoutes.gameSelect,
       builder: (context, state) => const GameSelectScreen(),
     ),
-
-    // 游戏房间
     GoRoute(
-      path: '/game/room',
+      path: AppRoutes.gameRoom,
       builder: (context, state) {
         final gameType = state.uri.queryParameters['type'] ?? 'quiz';
         return GameRoomScreen(gameType: gameType);
       },
     ),
-
-    // 生理与亲密记
     GoRoute(
-      path: '/period',
+      path: AppRoutes.period,
       builder: (context, state) => const PeriodIntimacyScreen(),
     ),
-
-    // 共享位置
     GoRoute(
-      path: '/location',
+      path: AppRoutes.location,
       builder: (context, state) => const CoupleLocationScreen(),
     ),
-
-    // 设置
     GoRoute(
-      path: '/settings',
+      path: AppRoutes.settings,
       builder: (context, state) => const SettingsScreen(),
     ),
-
-    // 管理员面板
     GoRoute(
-      path: '/admin',
+      path: AppRoutes.admin,
       builder: (context, state) => const AdminPanelScreen(),
     ),
-
-    // 开发者管理后台
     GoRoute(
-      path: '/dev-admin',
-      builder: (context, state) {
-        final authenticated = state.uri.queryParameters['auth'] == '1';
-        return DeveloperAdminScreen(preAuthenticated: authenticated);
-      },
+      path: AppRoutes.devAdmin,
+      builder: (context, state) => const DeveloperAdminScreen(),
     ),
   ],
 );

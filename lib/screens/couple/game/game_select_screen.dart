@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'game_room_screen.dart';
+import 'package:go_router/go_router.dart';
 
 /// 游戏选择页面
 class GameSelectScreen extends StatelessWidget {
@@ -55,12 +55,7 @@ class GameSelectScreen extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => GameRoomScreen(gameType: gameType),
-          ),
-        );
+        context.push('/game/room?type=$gameType');
       },
       child: Container(
         padding: const EdgeInsets.all(20),

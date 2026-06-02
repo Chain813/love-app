@@ -1,4 +1,7 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../services/leancloud_service.dart';
 
@@ -15,6 +18,8 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
   String _selectedMood = '😊';
   String _selectedWeather = '☀️';
   final List<String> _selectedTags = [];
+  String? _selectedImagePath;
+  final _imagePicker = ImagePicker();
 
   // 心情选项
   final List<Map<String, String>> _moods = [
@@ -131,37 +136,48 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
             // 添加照片
             _buildSectionTitle('添加照片'),
             const SizedBox(height: 8),
+            if (_selectedImagePath != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: kIsWeb
+                          ? Image.network(_selectedImagePath!, height: 160, width: double.infinity, fit: BoxFit.cover)
+                          : Image.file(File(_selectedImagePath!), height: 160, width: double.infinity, fit: BoxFit.cover),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedImagePath = null),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                          child: const Icon(Icons.close_rounded, size: 18, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             GestureDetector(
-              onTap: () {
-                // TODO: 打开相册
-              },
+              onTap: _pickImage,
               child: Container(
                 height: 100,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFFC6C6C8),
-                    style: BorderStyle.solid,
-                  ),
+                  border: Border.all(color: const Color(0xFFC6C6C8)),
                 ),
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.add_photo_alternate_rounded,
-                        size: 32,
-                        color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                      ),
+                      Icon(Icons.add_photo_alternate_rounded, size: 32, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
                       const SizedBox(height: 4),
-                      const Text(
-                        '点击添加照片',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF8E8E93),
-                        ),
-                      ),
+                      const Text('点击添加照片', style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93))),
                     ],
                   ),
                 ),
@@ -307,6 +323,21 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
     );
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1200,
+      );
+      if (picked != null && mounted) {
+        setState(() => _selectedImagePath = picked.path);
+      }
+    } catch (e) {
+      debugPrint('选择图片失败: $e');
+    }
+  }
+
   Future<void> _save() async {
     final content = _contentController.text.trim();
     if (content.isEmpty) {
@@ -324,6 +355,7 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
         weather: _selectedWeather,
         tags: _selectedTags,
         date: todayStr,
+        imageUrl: _selectedImagePath,
       );
 
       if (mounted) {
@@ -338,7 +370,7 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存日记失败：$e')),
+          const SnackBar(content: Text('保存日记失败，请稍后重试')),
         );
       }
     }

@@ -42,6 +42,11 @@ class _WishScreenState extends State<WishScreen> {
       });
     } catch (e) {
       debugPrint('获取心愿清单失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('加载心愿失败，请检查网络连接')),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -54,6 +59,11 @@ class _WishScreenState extends State<WishScreen> {
       await _loadWishes();
     } catch (e) {
       debugPrint('添加心愿失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('添加心愿失败，请稍后重试')),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -75,6 +85,11 @@ class _WishScreenState extends State<WishScreen> {
       }
     } catch (e) {
       debugPrint('切换心愿状态失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('操作失败，请稍后重试')),
+        );
+      }
     }
   }
 
@@ -85,6 +100,11 @@ class _WishScreenState extends State<WishScreen> {
       await _loadWishes();
     } catch (e) {
       debugPrint('删除心愿失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('删除心愿失败，请稍后重试')),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }

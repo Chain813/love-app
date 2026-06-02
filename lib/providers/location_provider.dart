@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../services/location_service.dart';
 import '../services/leancloud_service.dart';
@@ -37,6 +38,14 @@ class LocationProvider extends ChangeNotifier {
 
   /// 请求定位权限并获取位置
   Future<bool> requestPermissionAndLocate() async {
+    // Web 平台不支持原生定位权限
+    if (kIsWeb) {
+      _permissionGranted = true;
+      _error = null;
+      notifyListeners();
+      return true;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -65,6 +74,11 @@ class LocationProvider extends ChangeNotifier {
 
   /// 检查已有权限状态
   Future<void> checkPermission() async {
+    if (kIsWeb) {
+      _permissionGranted = true;
+      notifyListeners();
+      return;
+    }
     _permissionGranted = await LocationService.hasPermission();
     if (_permissionGranted) {
       await _loadMyLocation();
@@ -75,6 +89,7 @@ class LocationProvider extends ChangeNotifier {
 
   /// 加载自己的位置
   Future<void> _loadMyLocation() async {
+    if (kIsWeb) return;
     try {
       final pos = await LocationService.getCurrentPosition();
       if (pos != null) {
@@ -83,7 +98,7 @@ class LocationProvider extends ChangeNotifier {
         _myLng = lng;
       }
     } catch (e) {
-      print('加载自己位置失败: $e');
+      debugPrint('加载自己位置失败: $e');
     }
   }
 
@@ -99,7 +114,7 @@ class LocationProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('加载伴侣位置失败: $e');
+      debugPrint('加载伴侣位置失败: $e');
     }
   }
 

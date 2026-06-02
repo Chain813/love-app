@@ -4,10 +4,18 @@ import 'package:flutter/material.dart';
 /// 屏幕发射爱心粒子上升特效 Overlay — 增强版
 /// 包含心形 + 星形混合粒子，带旋转和生命周期缩放
 class HeartOverlay {
+  static DateTime? _lastShowTime;
+  static const _cooldown = Duration(milliseconds: 800);
+
   static void show(BuildContext context) {
+    // 冷却防抖：避免快速连击产生多个重叠 Overlay
+    final now = DateTime.now();
+    if (_lastShowTime != null && now.difference(_lastShowTime!) < _cooldown) return;
+    _lastShowTime = now;
+
     final overlayState = Overlay.of(context);
     late OverlayEntry overlayEntry;
-    
+
     overlayEntry = OverlayEntry(
       builder: (context) => _HeartOverlayWidget(
         onComplete: () {
@@ -15,7 +23,7 @@ class HeartOverlay {
         },
       ),
     );
-    
+
     overlayState.insert(overlayEntry);
   }
 }
@@ -93,6 +101,7 @@ class _HeartOverlayWidgetState extends State<_HeartOverlayWidget> with SingleTic
   @override
   void dispose() {
     _controller.dispose();
+    widget.onComplete(); // 确保 OverlayEntry 被移除，防止泄漏
     super.dispose();
   }
 
