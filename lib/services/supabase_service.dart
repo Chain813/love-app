@@ -200,7 +200,7 @@ class SupabaseService {
 
   /// 获取当前用户（从本地缓存）
   static Future<Map<String, dynamic>?> getCurrentUser() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     final user = box.get('current_user');
     if (user == null) return null;
     return Map<String, dynamic>.from(user as Map);
@@ -289,13 +289,13 @@ class SupabaseService {
 
   /// 保存用户信息到本地
   static Future<void> _saveUserToLocal(Map<String, dynamic> user) async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('current_user', user);
   }
 
   /// 获取本地保存的 Relation
   static Future<Map<String, dynamic>?> getLocalRelation() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     final relation = box.get('couple_relation');
     if (relation == null) return null;
     return Map<String, dynamic>.from(relation as Map);
@@ -315,7 +315,7 @@ class SupabaseService {
         final List results = jsonDecode(response.body);
         if (results.isNotEmpty) {
           final relation = results.first;
-          final box = await Hive.openBox('user');
+          final box = Hive.box('user');
           await box.put('couple_relation', relation);
 
           // 更新本地用户状态为已配对
@@ -363,7 +363,7 @@ class SupabaseService {
         'first_met_date': '2025-05-20',
         'anniversary_date': '2025-05-20',
       };
-      final box = await Hive.openBox('user');
+      final box = Hive.box('user');
       await box.put('couple_relation', relation);
       return relation;
     }
@@ -605,7 +605,7 @@ class SupabaseService {
     relation['first_met_date'] = firstMetDate;
     relation['anniversary_date'] = anniversaryDate;
 
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('couple_relation', relation);
 
     if (currentUser != null) {
@@ -654,7 +654,7 @@ class SupabaseService {
 
     // Local update
     relation['heartbeat_count'] = newCount;
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('couple_relation', relation);
     return newCount;
   }
@@ -677,7 +677,7 @@ class SupabaseService {
 
   /// 退出登录
   static Future<void> logout() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.delete('current_user');
     await box.delete('couple_relation');
   }
@@ -711,7 +711,7 @@ class SupabaseService {
           return map;
         }).toList();
         
-        final box = await Hive.openBox('diaries');
+        final box = Hive.box('diaries');
         await box.put('list', list);
         return list;
       }
@@ -719,7 +719,7 @@ class SupabaseService {
       print("fetchDiaries offline fallback: $e");
     }
 
-    final box = await Hive.openBox('diaries');
+    final box = Hive.box('diaries');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -779,7 +779,7 @@ class SupabaseService {
     }
 
     // Save to local cache
-    final box = await Hive.openBox('diaries');
+    final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -802,7 +802,7 @@ class SupabaseService {
       print("deleteDiary offline fallback: $e");
     }
 
-    final box = await Hive.openBox('diaries');
+    final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -825,7 +825,7 @@ class SupabaseService {
         final List results = jsonDecode(response.body);
         final list = List<Map<String, dynamic>>.from(results);
         
-        final box = await Hive.openBox('wishes');
+        final box = Hive.box('wishes');
         await box.put('list', list);
         return list;
       }
@@ -833,7 +833,7 @@ class SupabaseService {
       print("fetchWishes offline fallback: $e");
     }
 
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -869,7 +869,7 @@ class SupabaseService {
       print("saveWish offline fallback: $e");
     }
 
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -891,7 +891,7 @@ class SupabaseService {
       print("toggleWish offline fallback: $e");
     }
 
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -912,7 +912,7 @@ class SupabaseService {
       print("deleteWish offline fallback: $e");
     }
 
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -935,7 +935,7 @@ class SupabaseService {
         final List results = jsonDecode(response.body);
         final list = List<Map<String, dynamic>>.from(results);
         
-        final box = await Hive.openBox('anniversaries');
+        final box = Hive.box('anniversaries');
         await box.put('list', list);
         return list;
       }
@@ -943,7 +943,7 @@ class SupabaseService {
       print("fetchAnniversaries offline fallback: $e");
     }
 
-    final box = await Hive.openBox('anniversaries');
+    final box = Hive.box('anniversaries');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -980,7 +980,7 @@ class SupabaseService {
       print("saveAnniversary offline fallback: $e");
     }
 
-    final box = await Hive.openBox('anniversaries');
+    final box = Hive.box('anniversaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -1004,7 +1004,7 @@ class SupabaseService {
         final List results = jsonDecode(response.body);
         final list = results.map((e) => e['date'] as String).toList();
         
-        final box = await Hive.openBox('period_logs');
+        final box = Hive.box('period_logs');
         await box.put('list', list);
         return list;
       }
@@ -1012,7 +1012,7 @@ class SupabaseService {
       print("fetchPeriodLogs offline fallback: $e");
     }
 
-    final box = await Hive.openBox('period_logs');
+    final box = Hive.box('period_logs');
     final cached = box.get('list');
     if (cached != null) {
       return List<String>.from(cached as List);
@@ -1060,7 +1060,7 @@ class SupabaseService {
     }
 
     // Cache locally
-    final box = await Hive.openBox('period_logs');
+    final box = Hive.box('period_logs');
     final List<String> list = List<String>.from(box.get('list') ?? []);
     if (isPeriod) {
       if (!list.contains(dateString)) {
@@ -1086,7 +1086,7 @@ class SupabaseService {
         final List results = jsonDecode(response.body);
         final list = List<Map<String, dynamic>>.from(results);
 
-        final box = await Hive.openBox('intimacy_logs');
+        final box = Hive.box('intimacy_logs');
         await box.put('list', list);
         return list;
       }
@@ -1094,7 +1094,7 @@ class SupabaseService {
       print("fetchIntimacyLogs offline fallback: $e");
     }
 
-    final box = await Hive.openBox('intimacy_logs');
+    final box = Hive.box('intimacy_logs');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -1144,7 +1144,7 @@ class SupabaseService {
     }
 
     // Cache locally
-    final box = await Hive.openBox('intimacy_logs');
+    final box = Hive.box('intimacy_logs');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -1213,7 +1213,7 @@ class SupabaseService {
     }
 
     // Cache locally
-    final box = await Hive.openBox('intimacy_logs');
+    final box = Hive.box('intimacy_logs');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))

@@ -37,7 +37,7 @@ class LlmService {
     String? coupleName,
     int? loveDays,
   }) async {
-    final box = await Hive.openBox(_boxName);
+    final box = Hive.box(_boxName);
     final cachedDate = box.get(_keyDate) as String?;
     final todayStr = _todayStr();
 

@@ -45,7 +45,7 @@ class WebdavService {
       // 初始化同步目录
       await _createSyncDir();
 
-      final box = await Hive.openBox('user');
+      final box = Hive.box('user');
       
       // 在 WebDAV 模式下，用配置的 WebDAV 账号作为登录标识
       var user = box.get('current_user') != null
@@ -101,7 +101,7 @@ class WebdavService {
 
   /// 获取当前用户（本地）
   static Future<Map<String, dynamic>?> getCurrentUser() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     final user = box.get('current_user');
     if (user == null) return null;
     return Map<String, dynamic>.from(user as Map);
@@ -109,7 +109,7 @@ class WebdavService {
 
   /// 获取本地保存的 Relation
   static Future<Map<String, dynamic>?> getLocalRelation() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     final relation = box.get('couple_relation');
     if (relation == null) return null;
     return Map<String, dynamic>.from(relation as Map);
@@ -136,7 +136,7 @@ class WebdavService {
 
     if (remoteRelation != null) {
       // 合并本地与远程的 Relation，通常取最新修改的，或者以远程为主
-      final box = await Hive.openBox('user');
+      final box = Hive.box('user');
       await box.put('couple_relation', remoteRelation);
       return remoteRelation;
     } else {
@@ -160,7 +160,7 @@ class WebdavService {
         'first_met_date': '2025-05-20',
         'anniversary_date': '2025-05-20',
       };
-      final box = await Hive.openBox('user');
+      final box = Hive.box('user');
       await box.put('couple_relation', newRel);
       await _safeUploadWithRetry('couple_relation.json', newRel);
       return newRel;
@@ -178,7 +178,7 @@ class WebdavService {
     if (user == null) throw Exception('请先登录');
 
     user['nickname'] = newNickname;
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('current_user', user);
 
     final relation = await getLocalRelation();
@@ -208,7 +208,7 @@ class WebdavService {
     relation['first_met_date'] = firstMetDate;
     relation['anniversary_date'] = anniversaryDate;
 
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('couple_relation', relation);
     await _safeUploadWithRetry('couple_relation.json', relation);
 
@@ -231,7 +231,7 @@ class WebdavService {
       final newCount = (relation['heartbeat_count'] ?? 0) + 1;
       relation['heartbeat_count'] = newCount;
 
-      final box = await Hive.openBox('user');
+      final box = Hive.box('user');
       await box.put('couple_relation', relation);
 
       final success = await _uploadFileWithLock('couple_relation.json', relation);
@@ -252,7 +252,7 @@ class WebdavService {
   }
 
   static Future<void> logout() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.delete('current_user');
     await box.delete('couple_relation');
   }
@@ -360,7 +360,7 @@ class WebdavService {
 
   // --- 日记同步 ---
   static Future<List<Map<String, dynamic>>> fetchDiaries() async {
-    final localBox = await Hive.openBox('diaries');
+    final localBox = Hive.box('diaries');
     final List<dynamic> localRaw = localBox.get('list') ?? [];
     final localList = List<Map<String, dynamic>>.from(
       localRaw.map((e) => Map<String, dynamic>.from(e as Map))
@@ -411,7 +411,7 @@ class WebdavService {
       'updatedAt': DateTime.now().toIso8601String(),
     };
 
-    final box = await Hive.openBox('diaries');
+    final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -430,7 +430,7 @@ class WebdavService {
   }
 
   static Future<void> deleteDiary(String objectId) async {
-    final box = await Hive.openBox('diaries');
+    final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -442,7 +442,7 @@ class WebdavService {
 
   // --- 心愿同步 ---
   static Future<List<Map<String, dynamic>>> fetchWishes() async {
-    final localBox = await Hive.openBox('wishes');
+    final localBox = Hive.box('wishes');
     final List<dynamic> localRaw = localBox.get('list') ?? [];
     final localList = List<Map<String, dynamic>>.from(
       localRaw.map((e) => Map<String, dynamic>.from(e as Map))
@@ -479,7 +479,7 @@ class WebdavService {
       'updatedAt': DateTime.now().toIso8601String(),
     };
 
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -490,7 +490,7 @@ class WebdavService {
   }
 
   static Future<void> toggleWish(String objectId, bool completed) async {
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -506,7 +506,7 @@ class WebdavService {
   }
 
   static Future<void> deleteWish(String objectId) async {
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -518,7 +518,7 @@ class WebdavService {
 
   // --- 纪念日同步 ---
   static Future<List<Map<String, dynamic>>> fetchAnniversaries() async {
-    final localBox = await Hive.openBox('anniversaries');
+    final localBox = Hive.box('anniversaries');
     final List<dynamic> localRaw = localBox.get('list') ?? [];
     final localList = List<Map<String, dynamic>>.from(
       localRaw.map((e) => Map<String, dynamic>.from(e as Map))
@@ -557,7 +557,7 @@ class WebdavService {
       'updatedAt': DateTime.now().toIso8601String(),
     };
 
-    final box = await Hive.openBox('anniversaries');
+    final box = Hive.box('anniversaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -570,7 +570,7 @@ class WebdavService {
 
   // --- 生理期同步 ---
   static Future<List<String>> fetchPeriodLogs() async {
-    final localBox = await Hive.openBox('period_logs');
+    final localBox = Hive.box('period_logs');
     final localList = List<String>.from(localBox.get('list') ?? []);
 
     final remoteRaw = await _downloadFile('period_logs.json');
@@ -588,7 +588,7 @@ class WebdavService {
   }
 
   static Future<void> togglePeriodLog(String dateString, bool isPeriod) async {
-    final box = await Hive.openBox('period_logs');
+    final box = Hive.box('period_logs');
     final List<String> list = List<String>.from(box.get('list') ?? []);
     if (isPeriod) {
       if (!list.contains(dateString)) {
@@ -603,7 +603,7 @@ class WebdavService {
 
   // --- 亲密记同步 ---
   static Future<List<Map<String, dynamic>>> fetchIntimacyLogs() async {
-    final localBox = await Hive.openBox('intimacy_logs');
+    final localBox = Hive.box('intimacy_logs');
     final List<dynamic> localRaw = localBox.get('list') ?? [];
     final localList = List<Map<String, dynamic>>.from(
       localRaw.map((e) => Map<String, dynamic>.from(e as Map))
@@ -647,7 +647,7 @@ class WebdavService {
       'updatedAt': DateTime.now().toIso8601String(),
     };
 
-    final box = await Hive.openBox('intimacy_logs');
+    final box = Hive.box('intimacy_logs');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))

@@ -17,7 +17,7 @@ class ThemeProvider extends ChangeNotifier {
 
   Future<void> _loadTheme() async {
     try {
-      final box = await Hive.openBox(_themeBox);
+      final box = Hive.box(_themeBox);
       final themeIndex = box.get(_themeKey, defaultValue: 0) as int;
       if (themeIndex >= 0 && themeIndex < AppThemeType.values.length) {
         _currentTheme = AppThemeType.values[themeIndex];
@@ -35,7 +35,7 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final box = await Hive.openBox(_themeBox);
+      final box = Hive.box(_themeBox);
       await box.put(_themeKey, theme.index);
     } catch (e) {
       // 静默处理存储错误

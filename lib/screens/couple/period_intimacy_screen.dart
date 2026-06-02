@@ -41,7 +41,7 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
   }
 
   Future<void> _checkPinLock() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     final pin = box.get('intimacy_pin') as String?;
     if (pin == null || pin.isEmpty) {
       setState(() {
@@ -60,8 +60,12 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
   Future<void> _loadCloudData() async {
     setState(() => _isLoading = true);
     try {
-      final periods = await LeanCloudService.fetchPeriodLogs();
-      final intimacies = await LeanCloudService.fetchIntimacyLogs();
+      final results = await Future.wait([
+        LeanCloudService.fetchPeriodLogs(),
+        LeanCloudService.fetchIntimacyLogs(),
+      ]);
+      final periods = results[0] as List<String>;
+      final intimacies = results[1] as List<Map<String, dynamic>>;
 
       setState(() {
         _periodDays = Set<String>.from(periods);
@@ -124,7 +128,7 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
   }
 
   Future<void> _saveNewPin(String pin) async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('intimacy_pin', pin);
     setState(() {
       _savedPin = pin;
@@ -139,7 +143,7 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
   }
 
   Future<void> _disablePinLock() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.delete('intimacy_pin');
     setState(() {
       _savedPin = null;

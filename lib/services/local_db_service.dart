@@ -1,11 +1,12 @@
 import 'dart:math';
+import 'package:intl/intl.dart';
 import 'package:hive/hive.dart';
 
 class LocalDbService {
   /// 注册或登录 (本地直接成功)
   static Future<Map<String, dynamic>> registerOrLogin(
       String username, String password) async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     
     // 检查本地是否存在此用户
     Map<String, dynamic>? user = box.get('current_user') != null
@@ -36,7 +37,7 @@ class LocalDbService {
 
   /// 获取当前用户（从本地缓存）
   static Future<Map<String, dynamic>?> getCurrentUser() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     final user = box.get('current_user');
     if (user == null) return null;
     return Map<String, dynamic>.from(user as Map);
@@ -44,7 +45,7 @@ class LocalDbService {
 
   /// 获取本地保存的 Relation
   static Future<Map<String, dynamic>?> getLocalRelation() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     final relation = box.get('couple_relation');
     if (relation == null) return null;
     return Map<String, dynamic>.from(relation as Map);
@@ -71,11 +72,11 @@ class LocalDbService {
       'user1_gender': 'female',
       'user2_gender': user['gender'] ?? 'male',
       'heartbeat_count': 0,
-      'first_met_date': DateTime.now().toString().substring(0, 10),
-      'anniversary_date': DateTime.now().toString().substring(0, 10),
+      'first_met_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      'anniversary_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
     };
 
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('couple_relation', relation);
 
     user['status'] = 'paired';
@@ -102,11 +103,11 @@ class LocalDbService {
       'user1_gender': 'female',
       'user2_gender': user['gender'] ?? 'male',
       'heartbeat_count': 0,
-      'first_met_date': DateTime.now().toString().substring(0, 10),
-      'anniversary_date': DateTime.now().toString().substring(0, 10),
+      'first_met_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      'anniversary_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
     };
 
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('couple_relation', relation);
 
     user['status'] = 'paired';
@@ -121,7 +122,7 @@ class LocalDbService {
     if (user == null) throw Exception('请先登录');
 
     user['nickname'] = newNickname;
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('current_user', user);
 
     // 同步更新配对关系中的名字
@@ -155,7 +156,7 @@ class LocalDbService {
     relation['first_met_date'] = firstMetDate;
     relation['anniversary_date'] = anniversaryDate;
 
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('couple_relation', relation);
 
     final user = await getCurrentUser();
@@ -174,7 +175,7 @@ class LocalDbService {
 
     final newCount = (relation['heartbeat_count'] ?? 0) + 1;
     relation['heartbeat_count'] = newCount;
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('couple_relation', relation);
     return newCount;
   }
@@ -186,14 +187,14 @@ class LocalDbService {
 
   /// 本地退出登录
   static Future<void> logout() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.delete('current_user');
     await box.delete('couple_relation');
   }
 
   // --- 本地日记操作 ---
   static Future<List<Map<String, dynamic>>> fetchDiaries() async {
-    final box = await Hive.openBox('diaries');
+    final box = Hive.box('diaries');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -230,7 +231,7 @@ class LocalDbService {
       'updatedAt': DateTime.now().toIso8601String(),
     };
 
-    final box = await Hive.openBox('diaries');
+    final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -246,7 +247,7 @@ class LocalDbService {
   }
 
   static Future<void> deleteDiary(String objectId) async {
-    final box = await Hive.openBox('diaries');
+    final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -257,7 +258,7 @@ class LocalDbService {
 
   // --- 本地心愿操作 ---
   static Future<List<Map<String, dynamic>>> fetchWishes() async {
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -285,7 +286,7 @@ class LocalDbService {
       'updatedAt': DateTime.now().toIso8601String(),
     };
 
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -295,7 +296,7 @@ class LocalDbService {
   }
 
   static Future<void> toggleWish(String objectId, bool completed) async {
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -309,7 +310,7 @@ class LocalDbService {
   }
 
   static Future<void> deleteWish(String objectId) async {
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -320,7 +321,7 @@ class LocalDbService {
 
   // --- 本地纪念日操作 ---
   static Future<List<Map<String, dynamic>>> fetchAnniversaries() async {
-    final box = await Hive.openBox('anniversaries');
+    final box = Hive.box('anniversaries');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -349,7 +350,7 @@ class LocalDbService {
       'updatedAt': DateTime.now().toIso8601String(),
     };
 
-    final box = await Hive.openBox('anniversaries');
+    final box = Hive.box('anniversaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -361,7 +362,7 @@ class LocalDbService {
 
   // --- 本地生理期操作 ---
   static Future<List<String>> fetchPeriodLogs() async {
-    final box = await Hive.openBox('period_logs');
+    final box = Hive.box('period_logs');
     final cached = box.get('list');
     if (cached != null) {
       return List<String>.from(cached as List);
@@ -370,7 +371,7 @@ class LocalDbService {
   }
 
   static Future<void> togglePeriodLog(String dateString, bool isPeriod) async {
-    final box = await Hive.openBox('period_logs');
+    final box = Hive.box('period_logs');
     final List<String> list = List<String>.from(box.get('list') ?? []);
     if (isPeriod) {
       if (!list.contains(dateString)) {
@@ -384,7 +385,7 @@ class LocalDbService {
 
   // --- 本地亲密记操作 ---
   static Future<List<Map<String, dynamic>>> fetchIntimacyLogs() async {
-    final box = await Hive.openBox('intimacy_logs');
+    final box = Hive.box('intimacy_logs');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -395,7 +396,7 @@ class LocalDbService {
   }
 
   static Future<void> toggleIntimacyLog(String dateString, bool isIntimacy) async {
-    final box = await Hive.openBox('intimacy_logs');
+    final box = Hive.box('intimacy_logs');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -440,7 +441,7 @@ class LocalDbService {
       'updatedAt': DateTime.now().toIso8601String(),
     };
 
-    final box = await Hive.openBox('intimacy_logs');
+    final box = Hive.box('intimacy_logs');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -464,7 +465,7 @@ class LocalDbService {
     user['longitude'] = longitude;
     user['location_updated_at'] = DateTime.now().toIso8601String();
 
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('current_user', user);
   }
 

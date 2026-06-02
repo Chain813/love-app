@@ -670,19 +670,19 @@ class _LeanCloudRealImpl {
   }
 
   static Future<Map<String, dynamic>?> getCurrentUser() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     final user = box.get('current_user');
     if (user == null) return null;
     return Map<String, dynamic>.from(user as Map);
   }
 
   static Future<void> _saveUserToLocal(Map<String, dynamic> user) async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('current_user', user);
   }
 
   static Future<Map<String, dynamic>?> getLocalRelation() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     final relation = box.get('couple_relation');
     if (relation == null) return null;
     return Map<String, dynamic>.from(relation as Map);
@@ -703,7 +703,7 @@ class _LeanCloudRealImpl {
         final List results = data['results'] ?? [];
         if (results.isNotEmpty) {
           final relation = results.first;
-          final box = await Hive.openBox('user');
+          final box = Hive.box('user');
           await box.put('couple_relation', relation);
 
           user['status'] = 'paired';
@@ -735,7 +735,7 @@ class _LeanCloudRealImpl {
         'first_met_date': '2025-05-20',
         'anniversary_date': '2025-05-20',
       };
-      final box = await Hive.openBox('user');
+      final box = Hive.box('user');
       await box.put('couple_relation', relation);
       return relation;
     }
@@ -905,7 +905,7 @@ class _LeanCloudRealImpl {
     relation['first_met_date'] = firstMetDate;
     relation['anniversary_date'] = anniversaryDate;
 
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('couple_relation', relation);
 
     if (currentUser != null) {
@@ -945,7 +945,7 @@ class _LeanCloudRealImpl {
         final newCount = updatedRelation['heartbeat_count'] ?? ((relation['heartbeat_count'] ?? 0) + 1);
         
         relation['heartbeat_count'] = newCount;
-        final box = await Hive.openBox('user');
+        final box = Hive.box('user');
         await box.put('couple_relation', relation);
         return newCount;
       }
@@ -955,7 +955,7 @@ class _LeanCloudRealImpl {
 
     final newCount = (relation['heartbeat_count'] ?? 0) + 1;
     relation['heartbeat_count'] = newCount;
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.put('couple_relation', relation);
     return newCount;
   }
@@ -976,7 +976,7 @@ class _LeanCloudRealImpl {
   }
 
   static Future<void> logout() async {
-    final box = await Hive.openBox('user');
+    final box = Hive.box('user');
     await box.delete('current_user');
     await box.delete('couple_relation');
   }
@@ -996,7 +996,7 @@ class _LeanCloudRealImpl {
         final List results = data['results'] ?? [];
         final list = List<Map<String, dynamic>>.from(results);
         
-        final box = await Hive.openBox('diaries');
+        final box = Hive.box('diaries');
         await box.put('list', list);
         return list;
       }
@@ -1004,7 +1004,7 @@ class _LeanCloudRealImpl {
       print("LC fetchDiaries error: $e");
     }
 
-    final box = await Hive.openBox('diaries');
+    final box = Hive.box('diaries');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -1054,7 +1054,7 @@ class _LeanCloudRealImpl {
       print("LC saveDiary error: $e");
     }
 
-    final box = await Hive.openBox('diaries');
+    final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -1077,7 +1077,7 @@ class _LeanCloudRealImpl {
       print("LC deleteDiary error: $e");
     }
 
-    final box = await Hive.openBox('diaries');
+    final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -1101,7 +1101,7 @@ class _LeanCloudRealImpl {
         final List results = data['results'] ?? [];
         final list = List<Map<String, dynamic>>.from(results);
         
-        final box = await Hive.openBox('wishes');
+        final box = Hive.box('wishes');
         await box.put('list', list);
         return list;
       }
@@ -1109,7 +1109,7 @@ class _LeanCloudRealImpl {
       print("LC fetchWishes error: $e");
     }
 
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -1145,7 +1145,7 @@ class _LeanCloudRealImpl {
       print("LC saveWish error: $e");
     }
 
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -1166,7 +1166,7 @@ class _LeanCloudRealImpl {
       print("LC toggleWish error: $e");
     }
 
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -1187,7 +1187,7 @@ class _LeanCloudRealImpl {
       print("LC deleteWish error: $e");
     }
 
-    final box = await Hive.openBox('wishes');
+    final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -1211,7 +1211,7 @@ class _LeanCloudRealImpl {
         final List results = data['results'] ?? [];
         final list = List<Map<String, dynamic>>.from(results);
         
-        final box = await Hive.openBox('anniversaries');
+        final box = Hive.box('anniversaries');
         await box.put('list', list);
         return list;
       }
@@ -1219,7 +1219,7 @@ class _LeanCloudRealImpl {
       print("LC fetchAnniversaries error: $e");
     }
 
-    final box = await Hive.openBox('anniversaries');
+    final box = Hive.box('anniversaries');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -1256,7 +1256,7 @@ class _LeanCloudRealImpl {
       print("LC saveAnniversary error: $e");
     }
 
-    final box = await Hive.openBox('anniversaries');
+    final box = Hive.box('anniversaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
@@ -1281,7 +1281,7 @@ class _LeanCloudRealImpl {
         final List results = data['results'] ?? [];
         final list = results.map((e) => e['date'] as String).toList();
         
-        final box = await Hive.openBox('period_logs');
+        final box = Hive.box('period_logs');
         await box.put('list', list);
         return list;
       }
@@ -1289,7 +1289,7 @@ class _LeanCloudRealImpl {
       print("LC fetchPeriodLogs error: $e");
     }
 
-    final box = await Hive.openBox('period_logs');
+    final box = Hive.box('period_logs');
     final cached = box.get('list');
     if (cached != null) {
       return List<String>.from(cached as List);
@@ -1340,7 +1340,7 @@ class _LeanCloudRealImpl {
       print("LC togglePeriodLog error: $e");
     }
 
-    final box = await Hive.openBox('period_logs');
+    final box = Hive.box('period_logs');
     final List<String> list = List<String>.from(box.get('list') ?? []);
     if (isPeriod) {
       if (!list.contains(dateString)) {
@@ -1367,7 +1367,7 @@ class _LeanCloudRealImpl {
         final List results = data['results'] ?? [];
         final list = List<Map<String, dynamic>>.from(results);
         
-        final box = await Hive.openBox('intimacy_logs');
+        final box = Hive.box('intimacy_logs');
         await box.put('list', list);
         return list;
       }
@@ -1375,7 +1375,7 @@ class _LeanCloudRealImpl {
       print("LC fetchIntimacyLogs error: $e");
     }
 
-    final box = await Hive.openBox('intimacy_logs');
+    final box = Hive.box('intimacy_logs');
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
@@ -1421,7 +1421,7 @@ class _LeanCloudRealImpl {
       print("LC saveIntimacyLog error: $e");
     }
 
-    final box = await Hive.openBox('intimacy_logs');
+    final box = Hive.box('intimacy_logs');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
