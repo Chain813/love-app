@@ -358,6 +358,35 @@ class WebdavService {
     return map.values.toList();
   }
 
+  // --- 图片上传/删除 ---
+
+  /// 上传图片到 WebDAV images 目录，返回文件名
+  static Future<String?> _uploadImageBytes(String fileName, List<int> bytes) async {
+    try {
+      final fileUrl = '$_webdavUrl/love_app_sync/images/$fileName';
+      await http.put(
+        Uri.parse(fileUrl),
+        headers: _headers,
+        body: bytes,
+      ).timeout(const Duration(seconds: 15));
+      return fileName;
+    } catch (e) {
+      print('WebDAV upload image $fileName failed: $e');
+      return null;
+    }
+  }
+
+  /// 删除 WebDAV 上的图片文件
+  static Future<void> _deleteImageFile(String fileName) async {
+    try {
+      final fileUrl = '$_webdavUrl/love_app_sync/images/$fileName';
+      await http.delete(Uri.parse(fileUrl), headers: _headers)
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      print('WebDAV delete image $fileName failed: $e');
+    }
+  }
+
   // --- 日记同步 ---
   static Future<List<Map<String, dynamic>>> fetchDiaries() async {
     final localBox = Hive.box('diaries');
@@ -397,6 +426,28 @@ class WebdavService {
     final coupleId = user?['couple_id'] ?? 'webdav_couple';
 
     final finalObjectId = objectId ?? 'webdav_diary_${DateTime.now().millisecondsSinceEpoch}';
+
+    // 处理图片：base64 data URI → 上传为独立文件，日记只存文件名
+    String finalImageUrl = '';
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      if (imageUrl.startsWith('data:')) {
+        // 新图片：提取 base64，上传为独立文件
+        final parts = imageUrl.split(',');
+        if (parts.length == 2) {
+          final bytes = base64Decode(parts[1]);
+          final ext = imageUrl.contains('image/png') ? 'png' : 'jpg';
+          final fileName = 'img_${finalObjectId}.$ext';
+          final uploaded = await _uploadImageBytes(fileName, bytes);
+          if (uploaded != null) {
+            finalImageUrl = fileName;
+          }
+        }
+      } else {
+        // 已经是文件名格式（编辑已有日记），保持不变
+        finalImageUrl = imageUrl;
+      }
+    }
+
     final body = {
       'objectId': finalObjectId,
       'couple_id': coupleId,
@@ -405,7 +456,7 @@ class WebdavService {
       'weather': weather,
       'tags': tags,
       'date': date,
-      'image_url': imageUrl ?? '',
+      'image_url': finalImageUrl,
       'creator_id': user?['objectId'] ?? 'webdav_user',
       'createdAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
@@ -435,6 +486,19 @@ class WebdavService {
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
       rawList.map((e) => Map<String, dynamic>.from(e as Map))
     );
+
+    // 找到要删除的日记，删除关联的图片文件
+    final target = list.cast<Map<String, dynamic>?>().firstWhere(
+      (item) => item?['objectId'] == objectId,
+      orElse: () => null,
+    );
+    if (target != null) {
+      final img = target['image_url'] as String? ?? '';
+      if (img.isNotEmpty && !img.startsWith('data:')) {
+        await _deleteImageFile(img);
+      }
+    }
+
     list.removeWhere((item) => item['objectId'] == objectId);
     await box.put('list', list);
     await _safeUploadWithRetry('diaries.json', list);
