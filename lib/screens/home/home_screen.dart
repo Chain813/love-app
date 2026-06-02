@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import '../../widgets/anniversary_card.dart';
 import '../../widgets/heart_overlay.dart';
 import '../../widgets/pulse_animation.dart';
 import '../diary/diary_list_screen.dart';
