@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
   String _selectedWeather = '☀️';
   final List<String> _selectedTags = [];
   String? _selectedImagePath;
+  String? _imageDataUri;
   final _imagePicker = ImagePicker();
 
   // 心情选项
@@ -143,15 +145,17 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: kIsWeb
-                          ? Image.network(_selectedImagePath!, height: 160, width: double.infinity, fit: BoxFit.cover)
-                          : Image.file(File(_selectedImagePath!), height: 160, width: double.infinity, fit: BoxFit.cover),
+                      child: _imageDataUri != null
+                          ? Image.memory(base64Decode(_imageDataUri!.split(',').last), height: 160, width: double.infinity, fit: BoxFit.cover)
+                          : (kIsWeb
+                              ? Image.network(_selectedImagePath!, height: 160, width: double.infinity, fit: BoxFit.cover)
+                              : Image.file(File(_selectedImagePath!), height: 160, width: double.infinity, fit: BoxFit.cover)),
                     ),
                     Positioned(
                       top: 4,
                       right: 4,
                       child: GestureDetector(
-                        onTap: () => setState(() => _selectedImagePath = null),
+                        onTap: () => setState(() { _selectedImagePath = null; _imageDataUri = null; }),
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
@@ -327,14 +331,26 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
     try {
       final picked = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 80,
-        maxWidth: 1200,
+        imageQuality: 70,
+        maxWidth: 800,
       );
       if (picked != null && mounted) {
-        setState(() => _selectedImagePath = picked.path);
+        // 读取图片字节并转为 base64 data URI（可跨设备同步）
+        final bytes = await picked.readAsBytes();
+        final base64 = base64Encode(bytes);
+        final mime = picked.mimeType ?? 'image/jpeg';
+        setState(() {
+          _selectedImagePath = picked.path;
+          _imageDataUri = 'data:$mime;base64,$base64';
+        });
       }
     } catch (e) {
       debugPrint('选择图片失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('无法访问相册，请在系统设置中开启照片权限')),
+        );
+      }
     }
   }
 
@@ -355,7 +371,7 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
         weather: _selectedWeather,
         tags: _selectedTags,
         date: todayStr,
-        imageUrl: _selectedImagePath,
+        imageUrl: _imageDataUri,
       );
 
       if (mounted) {

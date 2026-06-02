@@ -396,7 +396,9 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
         _loadDiaryPreview(),
         _loadWishStats(),
         _loadAnniversaryPreview(),
-      ]).catchError((_) {});
+      ]).catchError((e) {
+        debugPrint('并行加载数据失败: $e');
+      });
 
       // 加载每日金句（异步，不阻塞首页渲染）
       _loadDailyQuote();

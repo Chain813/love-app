@@ -30,13 +30,16 @@ class WebdavService {
     try {
       // 验证连接：发送 Propfind 请求到根目录或读取测试
       final client = http.Client();
-      final req = http.Request('PROPFIND', Uri.parse(_webdavUrl))
-        ..headers.addAll(_headers)
-        ..headers['Depth'] = '0';
-      
-      final res = await client.send(req);
-      if (res.statusCode != 207 && res.statusCode != 200) {
-        throw Exception('WebDAV 验证失败，状态码: ${res.statusCode}，请检查配置与应用密码');
+      try {
+        final req = http.Request('PROPFIND', Uri.parse(_webdavUrl))
+          ..headers.addAll(_headers)
+          ..headers['Depth'] = '0';
+        final res = await client.send(req);
+        if (res.statusCode != 207 && res.statusCode != 200) {
+          throw Exception('WebDAV 验证失败，状态码: ${res.statusCode}，请检查配置与应用密码');
+        }
+      } finally {
+        client.close();
       }
 
       // 初始化同步目录
@@ -82,13 +85,17 @@ class WebdavService {
   /// 确保 WebDAV 同步文件夹存在
   static Future<void> _createSyncDir() async {
     final client = http.Client();
-    final syncDirUrl = '$_webdavUrl/love_app_sync/';
-    final req = http.Request('MKCOL', Uri.parse(syncDirUrl))
-      ..headers.addAll(_headers);
-    final res = await client.send(req);
-    // 405 = 目录已存在，201 = 创建成功，均视为正常
-    if (res.statusCode != 201 && res.statusCode != 405) {
-      throw Exception('WebDAV 同步目录创建失败，状态码: ${res.statusCode}，请检查坚果云配置是否正确');
+    try {
+      final syncDirUrl = '$_webdavUrl/love_app_sync/';
+      final req = http.Request('MKCOL', Uri.parse(syncDirUrl))
+        ..headers.addAll(_headers);
+      final res = await client.send(req);
+      // 405 = 目录已存在，201 = 创建成功，均视为正常
+      if (res.statusCode != 201 && res.statusCode != 405) {
+        throw Exception('WebDAV 同步目录创建失败，状态码: ${res.statusCode}，请检查坚果云配置是否正确');
+      }
+    } finally {
+      client.close();
     }
   }
 
@@ -135,7 +142,7 @@ class WebdavService {
     } else {
       // 如果云端不存在且本地存在，则上传本地的到云端
       if (localRel != null) {
-        await _uploadFile('couple_relation.json', localRel);
+        await _safeUploadWithRetry('couple_relation.json', localRel);
         return localRel;
       }
       
@@ -155,7 +162,7 @@ class WebdavService {
       };
       final box = await Hive.openBox('user');
       await box.put('couple_relation', newRel);
-      await _uploadFile('couple_relation.json', newRel);
+      await _safeUploadWithRetry('couple_relation.json', newRel);
       return newRel;
     }
   }
@@ -178,7 +185,7 @@ class WebdavService {
     if (relation != null) {
       relation['user2_name'] = newNickname;
       await box.put('couple_relation', relation);
-      await _uploadFile('couple_relation.json', relation);
+      await _safeUploadWithRetry('couple_relation.json', relation);
     }
   }
 
@@ -203,7 +210,7 @@ class WebdavService {
 
     final box = await Hive.openBox('user');
     await box.put('couple_relation', relation);
-    await _uploadFile('couple_relation.json', relation);
+    await _safeUploadWithRetry('couple_relation.json', relation);
 
     final user = await getCurrentUser();
     if (user != null) {
@@ -294,6 +301,24 @@ class WebdavService {
     } catch (e) {
       print("WebDAV uploadWithLock $fileName failed: $e");
       return false;
+    }
+  }
+
+  /// 带冲突重试的安全上传（读→合并→写，最多重试 1 次）
+  static Future<void> _safeUploadWithRetry(String fileName, dynamic data) async {
+    final success = await _uploadFileWithLock(fileName, data);
+    if (success) return;
+
+    // 冲突：重新下载远端数据，合并后再试一次
+    final remote = await _downloadFile(fileName);
+    if (remote is List) {
+      final localList = data is List ? List<Map<String, dynamic>>.from(data) : <Map<String, dynamic>>[];
+      final remoteList = List<Map<String, dynamic>>.from(remote);
+      final merged = _mergeLists(localList, remoteList);
+      await _uploadFileWithLock(fileName, merged);
+    } else if (remote is Map<String, dynamic> && data is Map<String, dynamic>) {
+      final merged = <String, dynamic>{}..addAll(remote)..addAll(data);
+      await _uploadFileWithLock(fileName, merged);
     }
   }
 
@@ -401,7 +426,7 @@ class WebdavService {
     await box.put('list', list);
 
     // 立即上传同步
-    await _uploadFile('diaries.json', list);
+    await _safeUploadWithRetry('diaries.json', list);
   }
 
   static Future<void> deleteDiary(String objectId) async {
@@ -412,7 +437,7 @@ class WebdavService {
     );
     list.removeWhere((item) => item['objectId'] == objectId);
     await box.put('list', list);
-    await _uploadFile('diaries.json', list);
+    await _safeUploadWithRetry('diaries.json', list);
   }
 
   // --- 心愿同步 ---
@@ -461,7 +486,7 @@ class WebdavService {
     );
     list.add(body);
     await box.put('list', list);
-    await _uploadFile('wishes.json', list);
+    await _safeUploadWithRetry('wishes.json', list);
   }
 
   static Future<void> toggleWish(String objectId, bool completed) async {
@@ -477,7 +502,7 @@ class WebdavService {
       list[index]['updatedAt'] = DateTime.now().toIso8601String();
     }
     await box.put('list', list);
-    await _uploadFile('wishes.json', list);
+    await _safeUploadWithRetry('wishes.json', list);
   }
 
   static Future<void> deleteWish(String objectId) async {
@@ -488,7 +513,7 @@ class WebdavService {
     );
     list.removeWhere((item) => item['objectId'] == objectId);
     await box.put('list', list);
-    await _uploadFile('wishes.json', list);
+    await _safeUploadWithRetry('wishes.json', list);
   }
 
   // --- 纪念日同步 ---
@@ -540,7 +565,7 @@ class WebdavService {
     list.add(body);
     list.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
     await box.put('list', list);
-    await _uploadFile('anniversaries.json', list);
+    await _safeUploadWithRetry('anniversaries.json', list);
   }
 
   // --- 生理期同步 ---
@@ -573,7 +598,7 @@ class WebdavService {
       list.remove(dateString);
     }
     await box.put('list', list);
-    await _uploadFile('period_logs.json', list);
+    await _safeUploadWithRetry('period_logs.json', list);
   }
 
   // --- 亲密记同步 ---
@@ -635,6 +660,6 @@ class WebdavService {
       list.insert(0, body);
     }
     await box.put('list', list);
-    await _uploadFile('intimacy_logs.json', list);
+    await _safeUploadWithRetry('intimacy_logs.json', list);
   }
 }

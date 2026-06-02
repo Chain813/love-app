@@ -57,9 +57,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await Share.shareXFiles([XFile(file.path)], text: '虫米数据备份');
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('导出失败，请稍后重试')),
+          SnackBar(content: Text('导出失败：${e.toString().replaceFirst("Exception: ", "")}')),
         );
       }
     }

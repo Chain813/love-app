@@ -116,7 +116,7 @@ class LlmService {
         'temperature': 0.9,
         'max_tokens': 200,
       }),
-    );
+    ).timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(utf8.decode(response.bodyBytes));
