@@ -1,26 +1,16 @@
 import 'dart:ui';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import '../../widgets/anniversary_card.dart';
 import '../../widgets/heart_overlay.dart';
 import '../../widgets/pulse_animation.dart';
-import '../../utils/page_transitions.dart';
 import '../diary/diary_list_screen.dart';
 import '../photo/photo_wall_screen.dart';
-import '../anniversary/anniversary_screen.dart';
-import '../couple/wish/wish_screen.dart';
-import '../couple/chat/chat_screen.dart';
-import '../couple/game/game_select_screen.dart';
-import '../settings/settings_screen.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:like_button/like_button.dart';
 import '../../services/leancloud_service.dart';
 import '../../services/llm_service.dart';
 import '../auth/space_setup_screen.dart';
-import '../couple/period_intimacy_screen.dart';
-import '../location/couple_location_screen.dart';
 
 /// 首页 - 带底部导航栏
 class HomeScreen extends StatefulWidget {
@@ -341,11 +331,14 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
           }
         }
 
-        // 获取生理期状态
-        final periodLogs = await LeanCloudService.fetchPeriodLogs();
+        // 并行获取生理期和用户信息
         final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-        
-        final currentUser = await LeanCloudService.getCurrentUser();
+        final results = await Future.wait([
+          LeanCloudService.fetchPeriodLogs(),
+          LeanCloudService.getCurrentUser(),
+        ]);
+        final periodLogs = results[0] as List<String>;
+        final currentUser = results[1] as Map<String, dynamic>?;
         final currentUserId = currentUser?['objectId'];
         final isFemale = currentUser?['gender'] == 'female';
         
