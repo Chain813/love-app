@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/db_config_service.dart';
 import '../services/leancloud_service.dart';
 
 /// 用户认证状态管理 Provider
@@ -10,7 +11,12 @@ class AuthProvider extends ChangeNotifier {
   Map<String, dynamic>? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _currentUser != null;
+  bool get isWebdav => DbConfigService.currentDbType == DbType.webdav;
   bool get isPaired => _currentUser?['status'] == 'paired';
+  bool get needsWebdavRole =>
+      isWebdav && _currentUser?['status'] == 'role_required';
+  bool get needsWebdavSetup =>
+      isWebdav && _currentUser?['status'] == 'setup_required';
   String? get error => _error;
   String? get inviteCode => _currentUser?['invite_code'] as String?;
   String? get nickname => _currentUser?['nickname'] as String?;
@@ -29,6 +35,9 @@ class AuthProvider extends ChangeNotifier {
       }
     } catch (e) {
       _error = e.toString();
+      if (DbConfigService.currentDbType == DbType.webdav) {
+        _currentUser = null;
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -50,6 +59,9 @@ class AuthProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _error = e.toString().replaceAll('Exception: ', '');
+      if (DbConfigService.currentDbType == DbType.webdav) {
+        _currentUser = null;
+      }
       notifyListeners();
       return false;
     } finally {
@@ -72,6 +84,24 @@ class AuthProvider extends ChangeNotifier {
     try {
       await LeanCloudService.pairWithInviteCode(inviteCode);
       await checkLoginStatus(); // 刷新用户状态
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceAll('Exception: ', '');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> selectWebdavRole(String role) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await LeanCloudService.selectWebdavRole(role);
+      _currentUser = await LeanCloudService.getCurrentUser();
       return true;
     } catch (e) {
       _error = e.toString().replaceAll('Exception: ', '');

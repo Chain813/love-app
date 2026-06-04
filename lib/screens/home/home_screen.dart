@@ -40,8 +40,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _checkSetup() async {
-    final relation = await LeanCloudService.getLocalRelation() ?? await LeanCloudService.checkPairStatus();
-    if (relation == null || relation['first_met_date'] == null || (relation['first_met_date'] as String).isEmpty) {
+    final relation = await LeanCloudService.getLocalRelation() ??
+        await LeanCloudService.checkPairStatus();
+    if (relation == null ||
+        relation['first_met_date'] == null ||
+        (relation['first_met_date'] as String).isEmpty) {
       setState(() {
         _isSetupNeeded = true;
         _checkingSetup = false;
@@ -106,7 +109,8 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 68,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.88),
-                border: Border.all(color: Colors.white.withOpacity(0.5), width: 0.5),
+                border: Border.all(
+                    color: Colors.white.withOpacity(0.5), width: 0.5),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
@@ -170,7 +174,8 @@ class _AnimatedNavBarItem extends StatefulWidget {
   State<_AnimatedNavBarItem> createState() => _AnimatedNavBarItemState();
 }
 
-class _AnimatedNavBarItemState extends State<_AnimatedNavBarItem> with SingleTickerProviderStateMixin {
+class _AnimatedNavBarItemState extends State<_AnimatedNavBarItem>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -185,7 +190,8 @@ class _AnimatedNavBarItemState extends State<_AnimatedNavBarItem> with SingleTic
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.75), weight: 25),
       TweenSequenceItem(tween: Tween(begin: 0.75, end: 1.2), weight: 45),
       TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 30),
-    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic));
+    ]).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic));
   }
 
   @override
@@ -229,7 +235,9 @@ class _AnimatedNavBarItemState extends State<_AnimatedNavBarItem> with SingleTic
               scale: _scaleAnimation,
               child: Icon(
                 widget.icon,
-                color: widget.isActive ? widget.activeColor : const Color(0xFFAEAEB2),
+                color: widget.isActive
+                    ? widget.activeColor
+                    : const Color(0xFFAEAEB2),
                 size: widget.isActive ? 24 : 22,
               ),
             ),
@@ -238,7 +246,9 @@ class _AnimatedNavBarItemState extends State<_AnimatedNavBarItem> with SingleTic
               duration: const Duration(milliseconds: 250),
               style: TextStyle(
                 fontSize: widget.isActive ? 10 : 9,
-                color: widget.isActive ? widget.activeColor : const Color(0xFFAEAEB2),
+                color: widget.isActive
+                    ? widget.activeColor
+                    : const Color(0xFFAEAEB2),
                 fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
               ),
               child: Text(widget.label),
@@ -258,7 +268,8 @@ class _HomeContent extends StatefulWidget {
   State<_HomeContent> createState() => _HomeContentState();
 }
 
-class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixin {
+class _HomeContentState extends State<_HomeContent>
+    with TickerProviderStateMixin {
   int _loveClicks = 0;
   int _loveDays = 0;
   int _firstMetDays = 0;
@@ -309,7 +320,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final relation = await LeanCloudService.getLocalRelation() ?? await LeanCloudService.checkPairStatus();
+      final relation = await LeanCloudService.getLocalRelation() ??
+          await LeanCloudService.checkPairStatus();
       if (relation != null) {
         _relation = relation;
         _loveClicks = relation['heartbeat_count'] ?? 0;
@@ -342,7 +354,7 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
         final currentUser = results[1] as Map<String, dynamic>?;
         final currentUserId = currentUser?['objectId'];
         final isFemale = currentUser?['gender'] == 'female';
-        
+
         final partnerName = relation['user1_id'] == currentUserId
             ? relation['user2_name']
             : relation['user1_name'];
@@ -366,7 +378,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                 if (isFemale) {
                   _periodStatusTip = '✨ 距离下一次生理期预计还有 $daysLeft 天，一切安好。';
                 } else {
-                  _periodStatusTip = '✨ 距离 $partnerName 下一次生理期预计还有 $daysLeft 天。';
+                  _periodStatusTip =
+                      '✨ 距离 $partnerName 下一次生理期预计还有 $daysLeft 天。';
                 }
                 _periodStatusColor = const Color(0xFF68B77E);
               } else {
@@ -392,11 +405,11 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
         _loadAnniversaryPreview(),
       ]).catchError((e) {
         debugPrint('并行加载数据失败: $e');
+        return <void>[];
       });
 
       // 加载每日金句（异步，不阻塞首页渲染）
       _loadDailyQuote();
-
     } catch (e) {
       debugPrint('加载首页数据失败: $e');
     } finally {
@@ -480,7 +493,7 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
     try {
       // 触发全屏发射爱心浮动气泡雨粒子动效
       HeartOverlay.show(context);
-      
+
       final newCount = await LeanCloudService.sendHeartbeat();
       setState(() {
         _loveClicks = newCount;
@@ -499,7 +512,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
             ),
             backgroundColor: Theme.of(context).colorScheme.primary,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             duration: const Duration(seconds: 1),
           ),
         );
@@ -551,15 +565,19 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                       padding: const EdgeInsets.only(top: 16.0),
                       child: Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
                           color: _periodStatusColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: _periodStatusColor.withValues(alpha: 0.3), width: 1),
+                          border: Border.all(
+                              color: _periodStatusColor.withValues(alpha: 0.3),
+                              width: 1),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.spa_rounded, color: _periodStatusColor, size: 20),
+                            Icon(Icons.spa_rounded,
+                                color: _periodStatusColor, size: 20),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -640,7 +658,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                       ],
                     ),
                     child: Center(
-                      child: Text(user1Emoji, style: const TextStyle(fontSize: 22)),
+                      child: Text(user1Emoji,
+                          style: const TextStyle(fontSize: 22)),
                     ),
                   ),
                 ),
@@ -654,7 +673,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.favorite_rounded, color: theme.colorScheme.primary, size: 18),
+                  child: Icon(Icons.favorite_rounded,
+                      color: theme.colorScheme.primary, size: 18),
                 ),
               ),
               Positioned(
@@ -678,7 +698,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                       ],
                     ),
                     child: Center(
-                      child: Text(user2Emoji, style: const TextStyle(fontSize: 22)),
+                      child: Text(user2Emoji,
+                          style: const TextStyle(fontSize: 22)),
                     ),
                   ),
                 ),
@@ -748,7 +769,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.favorite_rounded, color: Colors.white, size: 14),
+                  const Icon(Icons.favorite_rounded,
+                      color: Colors.white, size: 14),
                   const SizedBox(width: 4),
                   Text(
                     _loveClicks > 0 ? '发射爱心 ($_loveClicks)' : '发射爱心',
@@ -811,7 +833,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(14),
@@ -819,7 +842,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.favorite_rounded, size: 12, color: theme.colorScheme.primary),
+                    Icon(Icons.favorite_rounded,
+                        size: 12, color: theme.colorScheme.primary),
                     const SizedBox(width: 4),
                     Text(
                       '我们相恋了',
@@ -845,7 +869,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                 AnimatedBuilder(
                   animation: _countUpAnimation,
                   builder: (context, child) {
-                    final displayDays = (_loveDays * _countUpAnimation.value).round();
+                    final displayDays =
+                        (_loveDays * _countUpAnimation.value).round();
                     return Text(
                       '$displayDays',
                       style: TextStyle(
@@ -859,17 +884,25 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                   },
                 ),
                 const SizedBox(width: 6),
-                const Text('天', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF8E8E93))),
+                const Text('天',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF8E8E93))),
               ],
             ),
             const SizedBox(height: 10),
             AnimatedBuilder(
               animation: _countUpAnimation,
               builder: (context, child) {
-                final displayMetDays = (_firstMetDays * _countUpAnimation.value).round();
+                final displayMetDays =
+                    (_firstMetDays * _countUpAnimation.value).round();
                 return Text(
                   '初识至今已经 $displayMetDays 天 🌟',
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF8E8E93), fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF8E8E93),
+                      fontWeight: FontWeight.w600),
                 );
               },
             ),
@@ -877,7 +910,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
             GestureDetector(
               onTap: () => context.push('/settings'),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -885,11 +919,15 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.edit_calendar_rounded, size: 18, color: theme.colorScheme.primary),
+                    Icon(Icons.edit_calendar_rounded,
+                        size: 18, color: theme.colorScheme.primary),
                     const SizedBox(width: 6),
                     Text(
                       '设置纪念日开始记录 💕',
-                      style: TextStyle(fontSize: 14, color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          fontSize: 14,
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -976,7 +1014,8 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                         title: _anniversaryTitle,
                         color: const Color(0xFFFF6B9D),
                         icon: Icons.calendar_today_rounded,
-                        content: '$_anniversaryIcon ${_getAnniversaryCountdown()}',
+                        content:
+                            '$_anniversaryIcon ${_getAnniversaryCountdown()}',
                         onTap: () {
                           context.push('/anniversary');
                         },
@@ -1018,9 +1057,11 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
   String _getAnniversaryCountdown() {
     if (_anniversaryDate == null) return '';
     final now = DateTime.now();
-    var nextDate = DateTime(now.year, _anniversaryDate!.month, _anniversaryDate!.day);
+    var nextDate =
+        DateTime(now.year, _anniversaryDate!.month, _anniversaryDate!.day);
     if (nextDate.isBefore(now)) {
-      nextDate = DateTime(now.year + 1, _anniversaryDate!.month, _anniversaryDate!.day);
+      nextDate = DateTime(
+          now.year + 1, _anniversaryDate!.month, _anniversaryDate!.day);
     }
     final daysLeft = nextDate.difference(now).inDays;
     if (daysLeft == 0) return '就是今天！🎉';
@@ -1210,10 +1251,14 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                 children: [
                   Text(
                     '每日一签',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E8E93)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF8E8E93)),
                   ),
                   SizedBox(height: 8),
-                  Text('✨ 正在为你生成今日金句...', style: TextStyle(fontSize: 13, color: Color(0xFFC7C7CC))),
+                  Text('✨ 正在为你生成今日金句...',
+                      style: TextStyle(fontSize: 13, color: Color(0xFFC7C7CC))),
                 ],
               ),
             ),
@@ -1268,13 +1313,19 @@ class _HomeContentState extends State<_HomeContent> with TickerProviderStateMixi
                     children: [
                       const Text(
                         '每日一签',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E8E93)),
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF8E8E93)),
                       ),
                       if (author.isNotEmpty) ...[
                         const SizedBox(width: 8),
                         Text(
                           '— $author',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFFC7C7CC), fontStyle: FontStyle.italic),
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFFC7C7CC),
+                              fontStyle: FontStyle.italic),
                         ),
                       ],
                     ],

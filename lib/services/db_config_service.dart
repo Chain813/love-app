@@ -48,15 +48,22 @@ class DbConfigService {
   }
 
   static DbType get currentDbType {
-    final typeStr = _box.get(_keyDbType, defaultValue: DbType.supabase.name);
-    return DbType.values.firstWhere(
+    final typeStr = _box.get(_keyDbType, defaultValue: DbType.webdav.name);
+    final type = DbType.values.firstWhere(
       (e) => e.name == typeStr,
-      orElse: () => DbType.supabase,
+      orElse: () => DbType.webdav,
     );
+    if (type == DbType.supabase || type == DbType.leancloud) {
+      return DbType.webdav;
+    }
+    return type;
   }
 
   static Future<void> setDbType(DbType type) async {
-    await _box.put(_keyDbType, type.name);
+    final effectiveType = type == DbType.supabase || type == DbType.leancloud
+        ? DbType.webdav
+        : type;
+    await _box.put(_keyDbType, effectiveType.name);
   }
 
   // --- LeanCloud Getters/Setters ---
@@ -98,11 +105,9 @@ class DbConfigService {
   static String get webdavUrl =>
       _box.get(_keyWebdavUrl, defaultValue: 'https://dav.jianguoyun.com/dav/');
 
-  static String get webdavUser =>
-      _box.get(_keyWebdavUser, defaultValue: '');
+  static String get webdavUser => _box.get(_keyWebdavUser, defaultValue: '');
 
-  static String get webdavPassword =>
-      _box.get(_keyWebdavPwd, defaultValue: '');
+  static String get webdavPassword => _box.get(_keyWebdavPwd, defaultValue: '');
 
   static Future<void> saveWebdavConfig({
     required String url,

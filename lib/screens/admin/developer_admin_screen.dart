@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../services/db_config_service.dart';
 import '../../services/leancloud_service.dart';
 
 /// 开发者管理后台 - 需要特定邮箱密码登录
@@ -19,6 +20,7 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _isClearingPairing = false;
   bool _isLoggedIn = false;
   String? _error;
 
@@ -96,7 +98,7 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
       _pairedUsers = users.where((u) => u['status'] == 'paired').length;
 
       // 加载配对关系
-      _relations = await _fetchRelations();
+      _relations = _buildRelations(users);
 
       // 加载统计数据
       _totalDiaries = await _fetchCount('Diary');
@@ -111,34 +113,85 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _fetchRelations() async {
-    try {
-      // 通过 LeanCloudService 的方法获取
-      final allUsers = await LeanCloudService.fetchAllLocations();
-      final pairedUsers = allUsers.where((u) => u['couple_id'] != null).toList();
+  List<Map<String, dynamic>> _buildRelations(
+    List<Map<String, dynamic>> allUsers,
+  ) {
+    final pairedUsers = allUsers.where((u) => u['couple_id'] != null).toList();
 
-      // 按 couple_id 分组
-      final Map<String, List<Map<String, dynamic>>> grouped = {};
-      for (final user in pairedUsers) {
-        final coupleId = user['couple_id'] as String?;
-        if (coupleId != null) {
-          grouped.putIfAbsent(coupleId, () => []);
-          grouped[coupleId]!.add(user);
-        }
+    // 按 couple_id 分组
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (final user in pairedUsers) {
+      final coupleId = user['couple_id'] as String?;
+      if (coupleId != null) {
+        grouped.putIfAbsent(coupleId, () => []);
+        grouped[coupleId]!.add(user);
       }
-
-      return grouped.entries.map((e) => <String, dynamic>{
-        'couple_id': e.key,
-        'members': e.value,
-      }).toList();
-    } catch (e) {
-      return [];
     }
+
+    return grouped.entries
+        .map((e) => <String, dynamic>{
+              'couple_id': e.key,
+              'members': e.value,
+            })
+        .toList();
   }
 
   Future<int> _fetchCount(String table) async {
     // 返回 0，实际项目中可以通过 API 获取
     return 0;
+  }
+
+  Future<void> _clearCloudPairingRelation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('清除云端配对关系'),
+        content: const Text(
+          '此操作会删除坚果云 /love_app_sync/couple_relation.json，并清理本机配对缓存。'
+          '删除后用户会回到未配对状态，需要重新创建共享空间。确定继续吗？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确认清除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _isClearingPairing = true;
+      _error = null;
+    });
+
+    try {
+      await LeanCloudService.clearCloudPairingRelation();
+      await _loadDashboardData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('云端配对关系已清除')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e.toString().replaceAll('Exception: ', '');
+        setState(() => _error = message);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isClearingPairing = false);
+      }
+    }
   }
 
   @override
@@ -265,7 +318,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                               )
                             : const Text(
                                 '登录',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.w600),
                               ),
                       ),
                     ),
@@ -284,12 +338,14 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                      const Icon(Icons.error_outline,
+                          color: Colors.red, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _error!,
-                          style: const TextStyle(color: Colors.red, fontSize: 13),
+                          style:
+                              const TextStyle(color: Colors.red, fontSize: 13),
                         ),
                       ),
                     ],
@@ -385,6 +441,11 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                         _buildStatsGrid(theme),
                         const SizedBox(height: 24),
 
+                        if (DbConfigService.currentDbType == DbType.webdav) ...[
+                          _buildWebdavDangerZone(theme),
+                          const SizedBox(height: 24),
+                        ],
+
                         // 用户列表
                         const Text(
                           '用户列表',
@@ -453,6 +514,35 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
           color: Colors.purple,
         ),
       ],
+    );
+  }
+
+  Widget _buildWebdavDangerZone(ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.shade100),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.red.shade50,
+          child: Icon(Icons.link_off_rounded, color: Colors.red.shade600),
+        ),
+        title: const Text(
+          '清除云端配对关系',
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red),
+        ),
+        subtitle: const Text('删除坚果云 couple_relation.json，用于配对异常时重置'),
+        trailing: _isClearingPairing
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.chevron_right_rounded),
+        onTap: _isClearingPairing ? null : _clearCloudPairingRelation,
+      ),
     );
   }
 
@@ -526,9 +616,11 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
 
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: CircleAvatar(
               backgroundColor: status == 'paired'
                   ? Colors.pink.shade50
@@ -547,13 +639,18 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (email.isNotEmpty)
-                  Text(email, style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93))),
+                  Text(email,
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF8E8E93))),
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: status == 'paired' ? Colors.pink.shade50 : Colors.grey.shade100,
+                        color: status == 'paired'
+                            ? Colors.pink.shade50
+                            : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -589,7 +686,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                   GestureDetector(
                     onTap: () => _openMap(lat, lng, nickname),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade50,
                         borderRadius: BorderRadius.circular(6),
@@ -597,14 +695,17 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.location_on, size: 12, color: Colors.blue.shade700),
+                          Icon(Icons.location_on,
+                              size: 12, color: Colors.blue.shade700),
                           const SizedBox(width: 4),
                           Text(
                             '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}',
-                            style: TextStyle(fontSize: 10, color: Colors.blue.shade700),
+                            style: TextStyle(
+                                fontSize: 10, color: Colors.blue.shade700),
                           ),
                           const SizedBox(width: 4),
-                          Icon(Icons.open_in_new, size: 10, color: Colors.blue.shade700),
+                          Icon(Icons.open_in_new,
+                              size: 10, color: Colors.blue.shade700),
                         ],
                       ),
                     ),
@@ -616,7 +717,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                         children: [
                           if (_isRecentLocation(user['location_updated_at']))
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 1),
                               margin: const EdgeInsets.only(right: 4),
                               decoration: BoxDecoration(
                                 color: Colors.green.shade50,
@@ -624,12 +726,16 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                               ),
                               child: Text(
                                 '实时',
-                                style: TextStyle(fontSize: 8, color: Colors.green.shade700, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                    fontSize: 8,
+                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                           Text(
                             '更新: ${_formatTime(user['location_updated_at'])}',
-                            style: const TextStyle(fontSize: 9, color: Color(0xFFC7C7CC)),
+                            style: const TextStyle(
+                                fontSize: 9, color: Color(0xFFC7C7CC)),
                           ),
                         ],
                       ),
@@ -647,7 +753,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                 final locInfo = lat != null && lng != null
                     ? '\n位置: ${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}'
                     : '';
-                final info = '昵称: $nickname\n邮箱: $email\n状态: $status\n邀请码: $inviteCode$locInfo';
+                final info =
+                    '昵称: $nickname\n邮箱: $email\n状态: $status\n邀请码: $inviteCode$locInfo';
                 Clipboard.setData(ClipboardData(text: info));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('已复制用户信息')),
@@ -681,7 +788,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
 
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -689,7 +797,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.link_rounded, size: 16, color: Colors.pink),
+                    const Icon(Icons.link_rounded,
+                        size: 16, color: Colors.pink),
                     const SizedBox(width: 6),
                     Text(
                       '配对 #${index + 1}',
@@ -697,35 +806,43 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      coupleId.length > 16 ? '${coupleId.substring(0, 16)}...' : coupleId,
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF8E8E93)),
+                      coupleId.length > 16
+                          ? '${coupleId.substring(0, 16)}...'
+                          : coupleId,
+                      style: const TextStyle(
+                          fontSize: 10, color: Color(0xFF8E8E93)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 ...members.map((member) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    children: [
-                      Icon(
-                        member['gender'] == 'female' ? Icons.female : Icons.male,
-                        size: 16,
-                        color: member['gender'] == 'female' ? Colors.pink : Colors.blue,
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            member['gender'] == 'female'
+                                ? Icons.female
+                                : Icons.male,
+                            size: 16,
+                            color: member['gender'] == 'female'
+                                ? Colors.pink
+                                : Colors.blue,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            member['nickname'] as String? ?? '未知',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(width: 8),
+                          if (member['email'] != null)
+                            Text(
+                              member['email'] as String,
+                              style: const TextStyle(
+                                  fontSize: 11, color: Color(0xFF8E8E93)),
+                            ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        member['nickname'] as String? ?? '未知',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      const SizedBox(width: 8),
-                      if (member['email'] != null)
-                        Text(
-                          member['email'] as String,
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
-                        ),
-                    ],
-                  ),
-                )),
+                    )),
               ],
             ),
           ),
@@ -746,11 +863,13 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
           label: '打开高德',
           onPressed: () {
             // 高德地图深度链接（打开 app 版）
-            final uri = Uri.parse('amap://marker?position=$lng,$lat&name=$name');
+            final uri =
+                Uri.parse('amap://marker?position=$lng,$lat&name=$name');
             launchUrl(uri).catchError((_) {
               // 如果没有安装高德，打开网页版
-              final webUri = Uri.parse('https://uri.amap.com/marker?position=$lng,$lat&name=$name');
-              launchUrl(webUri, mode: LaunchMode.externalApplication);
+              final webUri = Uri.parse(
+                  'https://uri.amap.com/marker?position=$lng,$lat&name=$name');
+              return launchUrl(webUri, mode: LaunchMode.externalApplication);
             });
           },
         ),
@@ -799,7 +918,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.location_off_rounded, size: 64, color: Colors.grey.shade300),
+            Icon(Icons.location_off_rounded,
+                size: 64, color: Colors.grey.shade300),
             const SizedBox(height: 16),
             const Text('暂无用户位置数据', style: TextStyle(color: Color(0xFF8E8E93))),
           ],
@@ -828,7 +948,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
           children: [
             // 高德地图瓦片
             TileLayer(
-              urlTemplate: 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+              urlTemplate:
+                  'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
               subdomains: const ['1', '2', '3', '4'],
               userAgentPackageName: 'com.chongmi.app',
             ),
@@ -849,7 +970,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                     child: Column(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: isRecent ? Colors.green : Colors.blue,
                             borderRadius: BorderRadius.circular(6),
@@ -904,7 +1026,11 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
               children: [
                 Row(
                   children: [
-                    Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                    Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                            color: Colors.green, shape: BoxShape.circle)),
                     const SizedBox(width: 4),
                     const Text('实时 (5分钟内)', style: TextStyle(fontSize: 10)),
                   ],
@@ -912,7 +1038,11 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle)),
+                    Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                            color: Colors.blue, shape: BoxShape.circle)),
                     const SizedBox(width: 4),
                     const Text('历史位置', style: TextStyle(fontSize: 10)),
                   ],
@@ -931,7 +1061,6 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
     final lat = user['latitude'] as double?;
     final lng = user['longitude'] as double?;
     final status = user['status'] as String? ?? 'single';
-    final inviteCode = user['invite_code'] as String? ?? '';
 
     showModalBottomSheet(
       context: context,
@@ -948,7 +1077,9 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: status == 'paired' ? Colors.pink.shade50 : Colors.grey.shade100,
+                    backgroundColor: status == 'paired'
+                        ? Colors.pink.shade50
+                        : Colors.grey.shade100,
                     child: Icon(
                       status == 'paired' ? Icons.favorite : Icons.person,
                       color: status == 'paired' ? Colors.pink : Colors.grey,
@@ -959,16 +1090,23 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(nickname, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(nickname,
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
                         if (email.isNotEmpty)
-                          Text(email, style: const TextStyle(fontSize: 13, color: Color(0xFF8E8E93))),
+                          Text(email,
+                              style: const TextStyle(
+                                  fontSize: 13, color: Color(0xFF8E8E93))),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: status == 'paired' ? Colors.pink.shade50 : Colors.grey.shade100,
+                      color: status == 'paired'
+                          ? Colors.pink.shade50
+                          : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -991,7 +1129,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                     const SizedBox(width: 8),
                     Text(
                       '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -1000,7 +1139,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                     padding: const EdgeInsets.only(left: 24, top: 4),
                     child: Text(
                       '更新: ${_formatTime(user['location_updated_at'])}',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF8E8E93)),
                     ),
                   ),
                 const SizedBox(height: 16),
@@ -1016,7 +1156,8 @@ class _DeveloperAdminScreenState extends State<DeveloperAdminScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),

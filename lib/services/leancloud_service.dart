@@ -143,6 +143,7 @@ class LeanCloudService {
     required String user2Gender,
     required String firstMetDate,
     required String anniversaryDate,
+    String? webdavRole,
   }) async {
     switch (DbConfigService.currentDbType) {
       case DbType.supabase:
@@ -162,6 +163,7 @@ class LeanCloudService {
           user2Gender: user2Gender,
           firstMetDate: firstMetDate,
           anniversaryDate: anniversaryDate,
+          webdavRole: webdavRole,
         );
       case DbType.local:
         return LocalDbService.updateCoupleSettings(
@@ -215,7 +217,28 @@ class LeanCloudService {
     }
   }
 
+  static Future<void> clearCloudPairingRelation() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.webdav:
+        return WebdavService.clearCloudPairingRelation();
+      default:
+        throw Exception('当前存储模式不支持清除云端配对关系');
+    }
+  }
+
   /// 退出登录
+  static Future<String?> getWebdavRole() {
+    return WebdavService.getWebdavRole();
+  }
+
+  static Future<Map<String, bool>> getWebdavRoleAvailability() {
+    return WebdavService.getWebdavRoleAvailability();
+  }
+
+  static Future<void> selectWebdavRole(String role) {
+    return WebdavService.selectWebdavRole(role);
+  }
+
   static Future<void> logout() async {
     switch (DbConfigService.currentDbType) {
       case DbType.supabase:
@@ -401,14 +424,18 @@ class LeanCloudService {
   }) async {
     switch (DbConfigService.currentDbType) {
       case DbType.supabase:
-        return SupabaseService.saveAnniversary(title: title, date: date, icon: icon);
+        return SupabaseService.saveAnniversary(
+            title: title, date: date, icon: icon);
       case DbType.webdav:
-        return WebdavService.saveAnniversary(title: title, date: date, icon: icon);
+        return WebdavService.saveAnniversary(
+            title: title, date: date, icon: icon);
       case DbType.local:
-        return LocalDbService.saveAnniversary(title: title, date: date, icon: icon);
+        return LocalDbService.saveAnniversary(
+            title: title, date: date, icon: icon);
       case DbType.leancloud:
       default:
-        return _LeanCloudRealImpl.saveAnniversary(title: title, date: date, icon: icon);
+        return _LeanCloudRealImpl.saveAnniversary(
+            title: title, date: date, icon: icon);
     }
   }
 
@@ -457,7 +484,8 @@ class LeanCloudService {
     }
   }
 
-  static Future<void> toggleIntimacyLog(String dateString, bool isIntimacy) async {
+  static Future<void> toggleIntimacyLog(
+      String dateString, bool isIntimacy) async {
     switch (DbConfigService.currentDbType) {
       case DbType.supabase:
         return SupabaseService.toggleIntimacyLog(dateString, isIntimacy);
@@ -532,7 +560,8 @@ class LeanCloudService {
     }
   }
 
-  static Future<Map<String, dynamic>?> fetchPartnerLocation(String partnerId) async {
+  static Future<Map<String, dynamic>?> fetchPartnerLocation(
+      String partnerId) async {
     switch (DbConfigService.currentDbType) {
       case DbType.supabase:
         return SupabaseService.fetchPartnerLocation(partnerId);
@@ -560,6 +589,7 @@ class LeanCloudService {
     }
   }
 }
+
 class _LeanCloudRealImpl {
   static const String _baseUrl = AppConstants.leanCloudServerUrl;
   static const String _appId = AppConstants.leanCloudAppId;
@@ -582,7 +612,8 @@ class _LeanCloudRealImpl {
   static Future<Map<String, dynamic>> registerOrLogin(
       String username, String password) async {
     try {
-      final queryUrl = Uri.parse('$_baseUrl/1.1/users?where=${Uri.encodeComponent('{"username":"$username"}')}');
+      final queryUrl = Uri.parse(
+          '$_baseUrl/1.1/users?where=${Uri.encodeComponent('{"username":"$username"}')}');
       final queryResponse = await http.get(queryUrl, headers: _headers);
 
       if (queryResponse.statusCode == 200) {
@@ -694,7 +725,8 @@ class _LeanCloudRealImpl {
 
     final userId = user['objectId'];
     final query = '{"\$or":[{"user1_id":"$userId"},{"user2_id":"$userId"}]}';
-    final url = Uri.parse('$_baseUrl/1.1/classes/CoupleRelation?where=${Uri.encodeComponent(query)}');
+    final url = Uri.parse(
+        '$_baseUrl/1.1/classes/CoupleRelation?where=${Uri.encodeComponent(query)}');
 
     try {
       final response = await http.get(url, headers: _headers);
@@ -708,7 +740,9 @@ class _LeanCloudRealImpl {
 
           user['status'] = 'paired';
           user['couple_id'] = relation['couple_id'];
-          user['partner_id'] = relation['user1_id'] == userId ? relation['user2_id'] : relation['user1_id'];
+          user['partner_id'] = relation['user1_id'] == userId
+              ? relation['user2_id']
+              : relation['user1_id'];
           await _saveUserToLocal(user);
 
           return relation;
@@ -747,10 +781,12 @@ class _LeanCloudRealImpl {
     if (currentUser == null) throw Exception('请先登录');
 
     final currentUserId = currentUser['objectId'];
-    final currentUserNickname = currentUser['nickname'] ?? currentUser['username'];
+    final currentUserNickname =
+        currentUser['nickname'] ?? currentUser['username'];
 
     try {
-      final queryUrl = Uri.parse('$_baseUrl/1.1/users?where=${Uri.encodeComponent('{"invite_code":"$inviteCode"}')}');
+      final queryUrl = Uri.parse(
+          '$_baseUrl/1.1/users?where=${Uri.encodeComponent('{"invite_code":"$inviteCode"}')}');
       final response = await http.get(queryUrl, headers: _headers);
 
       if (response.statusCode != 200) {
@@ -765,13 +801,15 @@ class _LeanCloudRealImpl {
 
       final partnerUser = results.first;
       final partnerId = partnerUser['objectId'];
-      final partnerNickname = partnerUser['nickname'] ?? partnerUser['username'];
+      final partnerNickname =
+          partnerUser['nickname'] ?? partnerUser['username'];
 
       if (partnerId == currentUserId) {
         throw Exception('不能与自己配对哦！');
       }
 
-      final checkUrl = Uri.parse('$_baseUrl/1.1/classes/CoupleRelation?where=${Uri.encodeComponent('{"\$or":[{"user1_id":"$partnerId"},{"user2_id":"$partnerId"},{"user1_id":"$currentUserId"},{"user2_id":"$currentUserId"}]}')}');
+      final checkUrl = Uri.parse(
+          '$_baseUrl/1.1/classes/CoupleRelation?where=${Uri.encodeComponent('{"\$or":[{"user1_id":"$partnerId"},{"user2_id":"$partnerId"},{"user1_id":"$currentUserId"},{"user2_id":"$currentUserId"}]}')}');
       final checkResponse = await http.get(checkUrl, headers: _headers);
       if (checkResponse.statusCode == 200) {
         final checkData = jsonDecode(checkResponse.body);
@@ -781,7 +819,8 @@ class _LeanCloudRealImpl {
         }
       }
 
-      final coupleId = 'couple_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
+      final coupleId =
+          'couple_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
       final relationBody = {
         'user1_id': partnerId,
         'user2_id': currentUserId,
@@ -795,7 +834,8 @@ class _LeanCloudRealImpl {
         'anniversary_date': '',
       };
 
-      final createRelationUrl = Uri.parse('$_baseUrl/1.1/classes/CoupleRelation');
+      final createRelationUrl =
+          Uri.parse('$_baseUrl/1.1/classes/CoupleRelation');
       final createResponse = await http.post(
         createRelationUrl,
         headers: _headers,
@@ -828,7 +868,7 @@ class _LeanCloudRealImpl {
       final headers = sessionToken.isNotEmpty
           ? _authenticatedHeaders(sessionToken)
           : _headers;
-      
+
       await http.put(
         url,
         headers: headers,
@@ -876,9 +916,11 @@ class _LeanCloudRealImpl {
       if (response.statusCode == 200) {
         if (currentUser != null) {
           final currentUserId = currentUser['objectId'];
-          final currentGender = relation['user1_id'] == currentUserId ? user1Gender : user2Gender;
-          final currentNickname = relation['user1_id'] == currentUserId ? user1Name : user2Name;
-          
+          final currentGender =
+              relation['user1_id'] == currentUserId ? user1Gender : user2Gender;
+          final currentNickname =
+              relation['user1_id'] == currentUserId ? user1Name : user2Name;
+
           currentUser['gender'] = currentGender;
           currentUser['nickname'] = currentNickname;
           await _saveUserToLocal(currentUser);
@@ -910,9 +952,11 @@ class _LeanCloudRealImpl {
 
     if (currentUser != null) {
       final currentUserId = currentUser['objectId'];
-      final currentGender = relation['user1_id'] == currentUserId ? user1Gender : user2Gender;
-      final currentNickname = relation['user1_id'] == currentUserId ? user1Name : user2Name;
-      
+      final currentGender =
+          relation['user1_id'] == currentUserId ? user1Gender : user2Gender;
+      final currentNickname =
+          relation['user1_id'] == currentUserId ? user1Name : user2Name;
+
       currentUser['gender'] = currentGender;
       currentUser['nickname'] = currentNickname;
       await _saveUserToLocal(currentUser);
@@ -942,8 +986,9 @@ class _LeanCloudRealImpl {
 
       if (response.statusCode == 200) {
         final updatedRelation = jsonDecode(response.body);
-        final newCount = updatedRelation['heartbeat_count'] ?? ((relation['heartbeat_count'] ?? 0) + 1);
-        
+        final newCount = updatedRelation['heartbeat_count'] ??
+            ((relation['heartbeat_count'] ?? 0) + 1);
+
         relation['heartbeat_count'] = newCount;
         final box = Hive.box('user');
         await box.put('couple_relation', relation);
@@ -988,14 +1033,15 @@ class _LeanCloudRealImpl {
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
-      final url = Uri.parse('$_baseUrl/1.1/classes/Diary?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&order=-date');
+      final url = Uri.parse(
+          '$_baseUrl/1.1/classes/Diary?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&order=-date');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final List results = data['results'] ?? [];
         final list = List<Map<String, dynamic>>.from(results);
-        
+
         final box = Hive.box('diaries');
         await box.put('list', list);
         return list;
@@ -1008,8 +1054,7 @@ class _LeanCloudRealImpl {
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
-        (cached as List).map((e) => Map<String, dynamic>.from(e as Map))
-      );
+          (cached as List).map((e) => Map<String, dynamic>.from(e as Map)));
     }
     return [];
   }
@@ -1027,7 +1072,8 @@ class _LeanCloudRealImpl {
     if (user == null || user['couple_id'] == null) throw Exception('未登录');
 
     final coupleId = user['couple_id'];
-    final finalObjectId = objectId ?? 'offline_diary_${DateTime.now().millisecondsSinceEpoch}';
+    final finalObjectId =
+        objectId ?? 'offline_diary_${DateTime.now().millisecondsSinceEpoch}';
     final body = {
       'objectId': finalObjectId,
       'couple_id': coupleId,
@@ -1057,8 +1103,7 @@ class _LeanCloudRealImpl {
     final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
 
     final index = list.indexWhere((item) => item['objectId'] == finalObjectId);
     if (index != -1) {
@@ -1080,8 +1125,7 @@ class _LeanCloudRealImpl {
     final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
     list.removeWhere((item) => item['objectId'] == objectId);
     await box.put('list', list);
   }
@@ -1093,14 +1137,15 @@ class _LeanCloudRealImpl {
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
-      final url = Uri.parse('$_baseUrl/1.1/classes/Wish?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&order=createdAt');
+      final url = Uri.parse(
+          '$_baseUrl/1.1/classes/Wish?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&order=createdAt');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final List results = data['results'] ?? [];
         final list = List<Map<String, dynamic>>.from(results);
-        
+
         final box = Hive.box('wishes');
         await box.put('list', list);
         return list;
@@ -1113,8 +1158,7 @@ class _LeanCloudRealImpl {
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
-        (cached as List).map((e) => Map<String, dynamic>.from(e as Map))
-      );
+          (cached as List).map((e) => Map<String, dynamic>.from(e as Map)));
     }
     return [];
   }
@@ -1148,8 +1192,7 @@ class _LeanCloudRealImpl {
     final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
     list.add(body);
     await box.put('list', list);
   }
@@ -1169,12 +1212,12 @@ class _LeanCloudRealImpl {
     final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
     final index = list.indexWhere((item) => item['objectId'] == objectId);
     if (index != -1) {
       list[index]['completed'] = completed;
-      list[index]['completed_at'] = completed ? DateTime.now().toIso8601String() : '';
+      list[index]['completed_at'] =
+          completed ? DateTime.now().toIso8601String() : '';
     }
     await box.put('list', list);
   }
@@ -1190,8 +1233,7 @@ class _LeanCloudRealImpl {
     final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
     list.removeWhere((item) => item['objectId'] == objectId);
     await box.put('list', list);
   }
@@ -1203,14 +1245,15 @@ class _LeanCloudRealImpl {
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
-      final url = Uri.parse('$_baseUrl/1.1/classes/Anniversary?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&order=date');
+      final url = Uri.parse(
+          '$_baseUrl/1.1/classes/Anniversary?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&order=date');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final List results = data['results'] ?? [];
         final list = List<Map<String, dynamic>>.from(results);
-        
+
         final box = Hive.box('anniversaries');
         await box.put('list', list);
         return list;
@@ -1223,8 +1266,7 @@ class _LeanCloudRealImpl {
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
-        (cached as List).map((e) => Map<String, dynamic>.from(e as Map))
-      );
+          (cached as List).map((e) => Map<String, dynamic>.from(e as Map)));
     }
     return [];
   }
@@ -1238,7 +1280,8 @@ class _LeanCloudRealImpl {
     if (user == null || user['couple_id'] == null) throw Exception('未登录');
 
     final coupleId = user['couple_id'];
-    final objectId = 'offline_anniversary_${DateTime.now().millisecondsSinceEpoch}';
+    final objectId =
+        'offline_anniversary_${DateTime.now().millisecondsSinceEpoch}';
     final body = {
       'objectId': objectId,
       'couple_id': coupleId,
@@ -1259,8 +1302,7 @@ class _LeanCloudRealImpl {
     final box = Hive.box('anniversaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
     list.add(body);
     list.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
     await box.put('list', list);
@@ -1273,14 +1315,15 @@ class _LeanCloudRealImpl {
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
-      final url = Uri.parse('$_baseUrl/1.1/classes/PeriodLog?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&limit=500');
+      final url = Uri.parse(
+          '$_baseUrl/1.1/classes/PeriodLog?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&limit=500');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final List results = data['results'] ?? [];
         final list = results.map((e) => e['date'] as String).toList();
-        
+
         final box = Hive.box('period_logs');
         await box.put('list', list);
         return list;
@@ -1305,7 +1348,8 @@ class _LeanCloudRealImpl {
     try {
       if (isPeriod) {
         final query = '{"couple_id":"$coupleId","date":"$dateString"}';
-        final checkUrl = Uri.parse('$_baseUrl/1.1/classes/PeriodLog?where=${Uri.encodeComponent(query)}');
+        final checkUrl = Uri.parse(
+            '$_baseUrl/1.1/classes/PeriodLog?where=${Uri.encodeComponent(query)}');
         final checkRes = await http.get(checkUrl, headers: _headers);
         if (checkRes.statusCode == 200) {
           final checkData = jsonDecode(checkRes.body);
@@ -1324,14 +1368,16 @@ class _LeanCloudRealImpl {
         }
       } else {
         final query = '{"couple_id":"$coupleId","date":"$dateString"}';
-        final queryUrl = Uri.parse('$_baseUrl/1.1/classes/PeriodLog?where=${Uri.encodeComponent(query)}');
+        final queryUrl = Uri.parse(
+            '$_baseUrl/1.1/classes/PeriodLog?where=${Uri.encodeComponent(query)}');
         final queryRes = await http.get(queryUrl, headers: _headers);
         if (queryRes.statusCode == 200) {
           final queryData = jsonDecode(queryRes.body);
           final List results = queryData['results'] ?? [];
           if (results.isNotEmpty) {
             final objectId = results.first['objectId'];
-            final deleteUrl = Uri.parse('$_baseUrl/1.1/classes/PeriodLog/$objectId');
+            final deleteUrl =
+                Uri.parse('$_baseUrl/1.1/classes/PeriodLog/$objectId');
             await http.delete(deleteUrl, headers: _headers);
           }
         }
@@ -1359,14 +1405,15 @@ class _LeanCloudRealImpl {
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
-      final url = Uri.parse('$_baseUrl/1.1/classes/IntimacyLog?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&order=-date');
+      final url = Uri.parse(
+          '$_baseUrl/1.1/classes/IntimacyLog?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&order=-date');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final List results = data['results'] ?? [];
         final list = List<Map<String, dynamic>>.from(results);
-        
+
         final box = Hive.box('intimacy_logs');
         await box.put('list', list);
         return list;
@@ -1379,8 +1426,7 @@ class _LeanCloudRealImpl {
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
-        (cached as List).map((e) => Map<String, dynamic>.from(e as Map))
-      );
+          (cached as List).map((e) => Map<String, dynamic>.from(e as Map)));
     }
     return [];
   }
@@ -1396,7 +1442,8 @@ class _LeanCloudRealImpl {
     if (user == null || user['couple_id'] == null) throw Exception('未登录');
     final coupleId = user['couple_id'];
 
-    final finalObjectId = objectId ?? 'offline_intimacy_${DateTime.now().millisecondsSinceEpoch}';
+    final finalObjectId =
+        objectId ?? 'offline_intimacy_${DateTime.now().millisecondsSinceEpoch}';
     final body = {
       'objectId': finalObjectId,
       'couple_id': coupleId,
@@ -1424,8 +1471,7 @@ class _LeanCloudRealImpl {
     final box = Hive.box('intimacy_logs');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
 
     final index = list.indexWhere((item) => item['objectId'] == finalObjectId);
     if (index != -1) {
@@ -1442,7 +1488,8 @@ class _LeanCloudRealImpl {
   }
 
   static Future<bool> _isInviteCodeUnique(String inviteCode) async {
-    final queryUrl = Uri.parse('$_baseUrl/1.1/users?where=${Uri.encodeComponent('{"invite_code":"$inviteCode"}')}');
+    final queryUrl = Uri.parse(
+        '$_baseUrl/1.1/users?where=${Uri.encodeComponent('{"invite_code":"$inviteCode"}')}');
     final response = await http.get(queryUrl, headers: _headers);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);

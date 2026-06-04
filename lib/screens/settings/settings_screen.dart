@@ -49,14 +49,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       final jsonStr = const JsonEncoder.withIndent('  ').convert(export);
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/chongmi_backup_${DateTime.now().millisecondsSinceEpoch}.json');
+      final file = File(
+          '${dir.path}/chongmi_backup_${DateTime.now().millisecondsSinceEpoch}.json');
       await file.writeAsString(jsonStr);
 
       await Share.shareXFiles([XFile(file.path)], text: '虫米数据备份');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导出失败：${e.toString().replaceFirst("Exception: ", "")}')),
+          SnackBar(
+              content:
+                  Text('导出失败：${e.toString().replaceFirst("Exception: ", "")}')),
         );
       }
     }
@@ -99,13 +102,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       // 检查/同步配对关系
       await LeanCloudService.checkPairStatus();
-      
+
       // 同步各个业务模块
-      await LeanCloudService.fetchDiaries();
-      await LeanCloudService.fetchWishes();
-      await LeanCloudService.fetchAnniversaries();
-      await LeanCloudService.fetchPeriodLogs();
-      await LeanCloudService.fetchIntimacyLogs();
+      await Future.wait([
+        LeanCloudService.fetchDiaries(),
+        LeanCloudService.fetchWishes(),
+        LeanCloudService.fetchAnniversaries(),
+        LeanCloudService.fetchPeriodLogs(),
+        LeanCloudService.fetchIntimacyLogs(),
+      ]);
 
       if (mounted) {
         Navigator.pop(context); // 关闭加载框
@@ -141,32 +146,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FadeInUp(
             duration: const Duration(milliseconds: 400),
             child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('主题颜色', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 12),
-              Consumer<ThemeProvider>(builder: (ctx, tp, _) {
-                return Wrap(spacing: 12, runSpacing: 12, children: AppThemeType.values.map((t) {
-                  final isSelected = tp.currentTheme == t;
-                  final color = AppTheme.primaryColors[t]!;
-                  return GestureDetector(
-                    onTap: () => tp.setTheme(t),
-                    child: Container(
-                      width: 48, height: 48,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(14),
-                        border: isSelected ? Border.all(color: Colors.white, width: 3) : null,
-                        boxShadow: isSelected ? [BoxShadow(color: color.withOpacity(0.45), blurRadius: 10, spreadRadius: 1, offset: const Offset(0, 2))] : null,
-                      ),
-                      child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 22) : null,
-                    ),
-                  );
-                }).toList());
-              }),
-            ]),
-          ),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('主题颜色',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    Consumer<ThemeProvider>(builder: (ctx, tp, _) {
+                      return Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: AppThemeType.values.map((t) {
+                            final isSelected = tp.currentTheme == t;
+                            final color = AppTheme.primaryColors[t]!;
+                            return GestureDetector(
+                              onTap: () => tp.setTheme(t),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: isSelected
+                                      ? Border.all(
+                                          color: Colors.white, width: 3)
+                                      : null,
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                              color: color.withOpacity(0.45),
+                                              blurRadius: 10,
+                                              spreadRadius: 1,
+                                              offset: const Offset(0, 2))
+                                        ]
+                                      : null,
+                                ),
+                                child: isSelected
+                                    ? const Icon(Icons.check,
+                                        color: Colors.white, size: 22)
+                                    : null,
+                              ),
+                            );
+                          }).toList());
+                    }),
+                  ]),
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -174,7 +202,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FadeInUp(
             duration: const Duration(milliseconds: 500),
             child: Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
               child: Column(
                 children: [
                   ListTile(
@@ -184,7 +213,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         topRight: Radius.circular(16),
                       ),
                     ),
-                    leading: const Icon(Icons.dns_rounded, color: Colors.blueAccent),
+                    leading:
+                        const Icon(Icons.dns_rounded, color: Colors.blueAccent),
                     title: const Text('数据同步引擎设置'),
                     subtitle: Text(_getCurrentDbName()),
                     trailing: const Icon(Icons.chevron_right_rounded),
@@ -207,7 +237,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           bottomRight: Radius.circular(16),
                         ),
                       ),
-                      leading: const Icon(Icons.sync_rounded, color: Colors.green),
+                      leading:
+                          const Icon(Icons.sync_rounded, color: Colors.green),
                       title: const Text('立即手动同步数据'),
                       subtitle: const Text('从云端获取最新数据并与本地合并'),
                       onTap: () => _triggerManualSync(context),
@@ -223,10 +254,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FadeInUp(
             duration: const Duration(milliseconds: 550),
             child: Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
               child: ListTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                leading: const Icon(Icons.ios_share_rounded, color: Colors.blue),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                leading:
+                    const Icon(Icons.ios_share_rounded, color: Colors.blue),
                 title: const Text('导出数据备份'),
                 subtitle: const Text('导出日记、心愿、纪念日为 JSON 文件'),
                 onTap: () => _exportData(context),
@@ -239,27 +273,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FadeInUp(
             duration: const Duration(milliseconds: 600),
             child: Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
               child: ListTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
                 leading: const Icon(Icons.logout_rounded, color: Colors.red),
                 title: const Text('退出登录', style: TextStyle(color: Colors.red)),
                 onTap: () async {
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (c) => AlertDialog(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       title: const Text('退出登录'),
                       content: const Text('确定要退出登录吗？'),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
-                        TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定', style: TextStyle(color: Colors.red))),
+                        TextButton(
+                            onPressed: () => Navigator.pop(c, false),
+                            child: const Text('取消')),
+                        TextButton(
+                            onPressed: () => Navigator.pop(c, true),
+                            child: const Text('确定',
+                                style: TextStyle(color: Colors.red))),
                       ],
                     ),
                   );
                   if (confirmed == true && context.mounted) {
                     await context.read<AuthProvider>().logout();
-                    if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+                    if (context.mounted)
+                      Navigator.of(context).popUntil((r) => r.isFirst);
                   }
                 },
               ),
@@ -270,27 +313,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FadeInUp(
             duration: const Duration(milliseconds: 700),
             child: Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
               child: ListTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                leading: const Icon(Icons.delete_forever_rounded, color: Color(0xFF8E8E93)),
-                title: const Text('注销账号', style: TextStyle(color: Color(0xFF8E8E93))),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                leading: const Icon(Icons.delete_forever_rounded,
+                    color: Color(0xFF8E8E93)),
+                title: const Text('注销账号',
+                    style: TextStyle(color: Color(0xFF8E8E93))),
                 onTap: () async {
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (c) => AlertDialog(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       title: const Text('注销账号'),
                       content: const Text('注销后所有数据将永久删除，不可恢复。确定要注销吗？'),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
-                        TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定注销', style: TextStyle(color: Colors.red))),
+                        TextButton(
+                            onPressed: () => Navigator.pop(c, false),
+                            child: const Text('取消')),
+                        TextButton(
+                            onPressed: () => Navigator.pop(c, true),
+                            child: const Text('确定注销',
+                                style: TextStyle(color: Colors.red))),
                       ],
                     ),
                   );
                   if (confirmed == true && context.mounted) {
                     await context.read<AuthProvider>().deleteAccount();
-                    if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+                    if (context.mounted)
+                      Navigator.of(context).popUntil((r) => r.isFirst);
                   }
                 },
               ),
@@ -310,10 +364,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 if (_adminTapCount >= 5) {
                   _adminTapCount = 0;
-                  context.push('/admin');
+                  context.push('/dev-admin');
                 }
               },
-              child: Text('虫米 v1.0.0', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.3))),
+              child: Text('虫米 v1.0.0',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.3))),
             ),
           ),
         ],
@@ -321,4 +379,3 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
-

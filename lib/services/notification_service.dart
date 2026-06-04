@@ -1,5 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
+import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 
 /// 本地通知服务
 /// 用于纪念日提醒、生理期预测等场景
@@ -8,7 +10,8 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._();
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
   /// 初始化通知服务
@@ -21,7 +24,10 @@ class NotificationService {
       return;
     }
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    tz_data.initializeTimeZones();
+
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -51,10 +57,11 @@ class NotificationService {
         IOSFlutterLocalNotificationsPlugin>();
     if (ios != null) {
       return await ios.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      ) ?? false;
+            alert: true,
+            badge: true,
+            sound: true,
+          ) ??
+          false;
     }
 
     return false;
@@ -106,7 +113,7 @@ class NotificationService {
       id,
       title,
       body,
-      scheduledDate as TZDateTime, // 需要 timezone 包
+      tz.TZDateTime.from(scheduledDate, tz.local),
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'chongmi_channel',

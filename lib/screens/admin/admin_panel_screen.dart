@@ -63,8 +63,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                       size: 64, color: Color(0xFFC7C7CC)),
                   SizedBox(height: 16),
                   Text('暂无用户位置数据',
-                      style:
-                          TextStyle(fontSize: 16, color: Color(0xFF8E8E93))),
+                      style: TextStyle(fontSize: 16, color: Color(0xFF8E8E93))),
                   SizedBox(height: 8),
                   Text('用户授权定位后，位置信息将显示在此',
                       style: TextStyle(fontSize: 13, color: Color(0xFFC7C7CC))),
@@ -129,9 +128,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 if (hasLocation) ...[
                   const SizedBox(height: 4),
                   Text(
-                    '纬度: ${lat!.toStringAsFixed(6)}  经度: ${lng!.toStringAsFixed(6)}',
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF8E8E93)),
+                    '纬度: ${lat.toStringAsFixed(6)}  经度: ${lng.toStringAsFixed(6)}',
+                    style:
+                        const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
                   ),
                   if (updateTime != null)
                     Text(
@@ -158,7 +157,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                       });
                       // 移动地图到该用户位置
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _mapController.move(LatLng(lat!, lng!), 15);
+                        _mapController.move(LatLng(lat, lng), 15);
                       });
                     },
                   )
@@ -204,7 +203,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             ),
             Icon(
               Icons.location_on_rounded,
-              color: isSelected ? Colors.red.shade600 : theme.colorScheme.primary,
+              color:
+                  isSelected ? Colors.red.shade600 : theme.colorScheme.primary,
               size: isSelected ? 40 : 32,
             ),
           ],

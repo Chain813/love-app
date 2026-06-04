@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/db_config_service.dart';
 import '../../services/leancloud_service.dart';
+import '../../services/webdav_service.dart';
 
 /// 专属空间初始化设置页面
 class SpaceSetupScreen extends StatefulWidget {
@@ -23,6 +25,7 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
   String _partnerGender = 'female';
   DateTime? _firstMetDate;
   DateTime? _anniversaryDate;
+  String _webdavRole = WebdavService.roleUser1;
   bool _isSaving = false;
   String? _error;
 
@@ -31,7 +34,12 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
     super.initState();
     // 默认填入用户名
     final auth = context.read<AuthProvider>();
-    _myNameController.text = auth.nickname ?? auth.currentUser?['username'] ?? '';
+    _myNameController.text =
+        auth.nickname ?? auth.currentUser?['username'] ?? '';
+    LeanCloudService.getWebdavRole().then((role) {
+      if (!mounted || role == null) return;
+      setState(() => _webdavRole = role);
+    });
   }
 
   @override
@@ -89,17 +97,23 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
     });
 
     try {
+      final isWebdav = DbConfigService.currentDbType == DbType.webdav;
       final relation = await LeanCloudService.getLocalRelation();
-      if (relation == null) throw Exception('未找到配对关系，请重新配对');
 
       final currentUser = await LeanCloudService.getCurrentUser();
       final currentUserId = currentUser?['objectId'];
 
       // 判断当前用户是 user1 还是 user2
-      final isUser1 = relation['user1_id'] == currentUserId;
+      final isUser1 = isWebdav
+          ? _webdavRole == WebdavService.roleUser1
+          : relation != null && relation['user1_id'] == currentUserId;
 
-      final String user1Name = isUser1 ? _myNameController.text.trim() : _partnerNameController.text.trim();
-      final String user2Name = isUser1 ? _partnerNameController.text.trim() : _myNameController.text.trim();
+      final String user1Name = isUser1
+          ? _myNameController.text.trim()
+          : _partnerNameController.text.trim();
+      final String user2Name = isUser1
+          ? _partnerNameController.text.trim()
+          : _myNameController.text.trim();
       final String user1Gender = isUser1 ? _myGender : _partnerGender;
       final String user2Gender = isUser1 ? _partnerGender : _myGender;
 
@@ -110,13 +124,22 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
         user2Gender: user2Gender,
         firstMetDate: DateFormat('yyyy-MM-dd').format(_firstMetDate!),
         anniversaryDate: DateFormat('yyyy-MM-dd').format(_anniversaryDate!),
+        webdavRole: isWebdav ? _webdavRole : null,
       );
 
+      if (!mounted) return;
+      if (isWebdav) {
+        await context.read<AuthProvider>().checkLoginStatus();
+      }
       widget.onSetupComplete();
     } catch (e) {
-      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+      if (mounted) {
+        setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+      }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -149,6 +172,63 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
                 ),
                 const SizedBox(height: 28),
 
+                if (DbConfigService.currentDbType == DbType.webdav) ...[
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '这台设备的身份',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(
+                              value: WebdavService.roleUser1,
+                              label: Text('我是 A'),
+                              icon: Icon(Icons.looks_one_rounded),
+                            ),
+                            ButtonSegment(
+                              value: WebdavService.roleUser2,
+                              label: Text('我是 B'),
+                              icon: Icon(Icons.looks_two_rounded),
+                            ),
+                          ],
+                          selected: {_webdavRole},
+                          onSelectionChanged: (selection) {
+                            setState(() => _webdavRole = selection.first);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '另一台设备登录同一个坚果云账号后，请选择另一个身份。',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF8E8E93),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
                 // 名字输入卡片
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -172,7 +252,8 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
                           SizedBox(width: 8),
                           Text(
                             '昵称与性别设置',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -187,9 +268,13 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
                         ),
-                        validator: (value) => value == null || value.trim().isEmpty ? '请输入您的昵称' : null,
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                                ? '请输入您的昵称'
+                                : null,
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -234,9 +319,13 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
                         ),
-                        validator: (value) => value == null || value.trim().isEmpty ? '请输入伴侣的昵称' : null,
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                                ? '请输入伴侣的昵称'
+                                : null,
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -295,39 +384,47 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.calendar_today_rounded, color: Colors.pinkAccent),
+                          Icon(Icons.calendar_today_rounded,
+                              color: Colors.pinkAccent),
                           SizedBox(width: 8),
                           Text(
                             '恋爱重要纪念日',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
                       const SizedBox(height: 20),
-                      
+
                       // 初识日期
                       InkWell(
                         onTap: () => _selectDate(context, false),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF2F2F7),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.handshake_outlined, color: Colors.blueAccent, size: 20),
+                              const Icon(Icons.handshake_outlined,
+                                  color: Colors.blueAccent, size: 20),
                               const SizedBox(width: 10),
-                              const Text('初识日期', style: TextStyle(fontSize: 14)),
+                              const Text('初识日期',
+                                  style: TextStyle(fontSize: 14)),
                               const Spacer(),
                               Text(
                                 _firstMetDate == null
                                     ? '选择日期 📅'
-                                    : DateFormat('yyyy-MM-dd').format(_firstMetDate!),
+                                    : DateFormat('yyyy-MM-dd')
+                                        .format(_firstMetDate!),
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: _firstMetDate == null ? Colors.grey : theme.colorScheme.primary,
+                                  color: _firstMetDate == null
+                                      ? Colors.grey
+                                      : theme.colorScheme.primary,
                                 ),
                               ),
                             ],
@@ -340,25 +437,31 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
                       InkWell(
                         onTap: () => _selectDate(context, true),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF2F2F7),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.favorite_outline_rounded, color: Colors.redAccent, size: 20),
+                              const Icon(Icons.favorite_outline_rounded,
+                                  color: Colors.redAccent, size: 20),
                               const SizedBox(width: 10),
-                              const Text('相恋日期', style: TextStyle(fontSize: 14)),
+                              const Text('相恋日期',
+                                  style: TextStyle(fontSize: 14)),
                               const Spacer(),
                               Text(
                                 _anniversaryDate == null
                                     ? '选择日期 📅'
-                                    : DateFormat('yyyy-MM-dd').format(_anniversaryDate!),
+                                    : DateFormat('yyyy-MM-dd')
+                                        .format(_anniversaryDate!),
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: _anniversaryDate == null ? Colors.grey : theme.colorScheme.primary,
+                                  color: _anniversaryDate == null
+                                      ? Colors.grey
+                                      : theme.colorScheme.primary,
                                 ),
                               ),
                             ],
@@ -396,7 +499,8 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
                           )
                         : const Text(
                             '进入专属小屋',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                   ),
                 ),
@@ -407,7 +511,8 @@ class _SpaceSetupScreenState extends State<SpaceSetupScreen> {
                     child: Center(
                       child: Text(
                         _error!,
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                        style: const TextStyle(
+                            color: Colors.redAccent, fontSize: 13),
                         textAlign: TextAlign.center,
                       ),
                     ),

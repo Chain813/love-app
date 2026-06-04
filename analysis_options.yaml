@@ -3,7 +3,8 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   errors:
     missing_return: error
-    invalid_annotation_target: warning
+    invalid_annotation_target: ignore
+    unreachable_switch_default: ignore
   exclude:
     - "**/*.freezed.dart"
     - "**/*.g.dart"

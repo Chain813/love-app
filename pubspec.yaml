@@ -76,6 +76,7 @@ dependencies:
 
   # 通知
   flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.1
 
 dev_dependencies:
   flutter_test:

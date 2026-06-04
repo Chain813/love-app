@@ -85,7 +85,8 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
-    final success = await context.read<AuthProvider>().loginWithPassword(email, password);
+    final success =
+        await context.read<AuthProvider>().loginWithPassword(email, password);
 
     setState(() => _isLoading = false);
 
@@ -120,7 +121,8 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
-    final success = await context.read<AuthProvider>().loginWithPassword(email, password);
+    final success =
+        await context.read<AuthProvider>().loginWithPassword(email, password);
 
     setState(() => _isLoading = false);
 
@@ -149,7 +151,8 @@ class _LoginScreenState extends State<LoginScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
               title: const Row(
                 children: [
                   Icon(Icons.lock_reset_rounded, color: Colors.orange),
@@ -163,7 +166,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const Text(
                     '请输入您伴侣的邮箱地址进行验证，验证通过后将发送密码重置邮件至您的邮箱。',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93), height: 1.5),
+                    style: TextStyle(
+                        fontSize: 13, color: Color(0xFF8E8E93), height: 1.5),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -183,7 +187,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   if (dialogError != null) ...[
                     const SizedBox(height: 12),
-                    Text(dialogError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                    Text(dialogError!,
+                        style:
+                            const TextStyle(color: Colors.red, fontSize: 12)),
                   ],
                 ],
               ),
@@ -202,7 +208,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           });
 
                           try {
-                            final msg = await LeanCloudService.resetPasswordWithPartnerEmail(
+                            final msg = await LeanCloudService
+                                .resetPasswordWithPartnerEmail(
                               myEmail: _emailController.text.trim(),
                               partnerEmail: partnerEmailController.text.trim(),
                               newPassword: '', // 不使用，由邮件触发
@@ -210,12 +217,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             if (context.mounted) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(msg), backgroundColor: Colors.green),
+                                SnackBar(
+                                    content: Text(msg),
+                                    backgroundColor: Colors.green),
                               );
                             }
                           } catch (e) {
                             setDialogState(() {
-                              dialogError = e.toString().replaceAll('Exception: ', '');
+                              dialogError =
+                                  e.toString().replaceAll('Exception: ', '');
                             });
                           } finally {
                             setDialogState(() => dialogLoading = false);
@@ -224,10 +234,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                   child: dialogLoading
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('验证'),
                 ),
               ],
@@ -248,7 +262,8 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
               child: Column(
                 children: [
                   const SizedBox(height: 60),
@@ -265,9 +280,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
 
                   const SizedBox(height: 20),
-                  const Text('虫米', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4, color: Color(0xFF1C1C1E))),
+                  const Text('虫米',
+                      style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 4,
+                          color: Color(0xFF1C1C1E))),
                   const SizedBox(height: 6),
-                  const Text('记录恋爱的点点滴滴', style: TextStyle(fontSize: 14, color: Color(0xFF8E8E93), letterSpacing: 2)),
+                  const Text('记录恋爱的点点滴滴',
+                      style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF8E8E93),
+                          letterSpacing: 2)),
                   const SizedBox(height: 50),
 
                   // 表单卡片
@@ -276,7 +300,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 24, offset: const Offset(0, 10))],
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 24,
+                            offset: const Offset(0, 10))
+                      ],
                     ),
                     child: Form(
                       key: _formKey,
@@ -286,7 +315,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           // 标题
                           Text(
                             _pageState == 'register' ? '注册新账号' : '登录',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+                            style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1C1C1E)),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -295,7 +327,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 : _pageState == 'login'
                                     ? '请输入密码登录。'
                                     : '输入邮箱开始。',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+                            style: const TextStyle(
+                                fontSize: 12, color: Color(0xFF8E8E93)),
                           ),
                           const SizedBox(height: 20),
 
@@ -308,13 +341,20 @@ class _LoginScreenState extends State<LoginScreen> {
                               hintText: '邮箱地址',
                               prefixIcon: const Icon(Icons.email_outlined),
                               filled: true,
-                              fillColor: _pageState == 'initial' ? const Color(0xFFF2F2F7) : Colors.grey.shade100,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                              fillColor: _pageState == 'initial'
+                                  ? const Color(0xFFF2F2F7)
+                                  : Colors.grey.shade100,
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 14),
                             ),
                             validator: (value) {
-                              if (value == null || value.trim().isEmpty) return '请输入邮箱';
-                              if (!value.contains('@') || !value.contains('.')) return '请输入有效的邮箱地址';
+                              if (value == null || value.trim().isEmpty)
+                                return '请输入邮箱';
+                              if (!value.contains('@') || !value.contains('.'))
+                                return '请输入有效的邮箱地址';
                               return null;
                             },
                           ),
@@ -330,33 +370,45 @@ class _LoginScreenState extends State<LoginScreen> {
                                 prefixIcon: const Icon(Icons.email_outlined),
                                 filled: true,
                                 fillColor: const Color(0xFFF2F2F7),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                               ),
                               validator: (value) {
-                                if (value == null || value.trim().isEmpty) return '请再次输入邮箱';
-                                if (value.trim() != _emailController.text.trim()) return '两次输入的邮箱不一致';
+                                if (value == null || value.trim().isEmpty)
+                                  return '请再次输入邮箱';
+                                if (value.trim() !=
+                                    _emailController.text.trim())
+                                  return '两次输入的邮箱不一致';
                                 return null;
                               },
                             ),
                           ],
 
                           // 登录/注册时显示密码
-                          if (_pageState == 'login' || _pageState == 'register') ...[
+                          if (_pageState == 'login' ||
+                              _pageState == 'register') ...[
                             const SizedBox(height: 12),
                             TextFormField(
                               controller: _passwordController,
                               obscureText: true,
                               decoration: InputDecoration(
                                 hintText: '密码',
-                                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                prefixIcon:
+                                    const Icon(Icons.lock_outline_rounded),
                                 filled: true,
                                 fillColor: const Color(0xFFF2F2F7),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                               ),
                               validator: (value) {
-                                if (value == null || value.isEmpty) return '请输入密码';
+                                if (value == null || value.isEmpty)
+                                  return '请输入密码';
                                 if (value.length < 6) return '密码长度不能少于 6 位';
                                 return null;
                               },
@@ -385,17 +437,25 @@ class _LoginScreenState extends State<LoginScreen> {
                                 backgroundColor: theme.colorScheme.primary,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
                               child: _isLoading
-                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white))
                                   : Text(
                                       _pageState == 'initial'
                                           ? '下一步'
                                           : _pageState == 'login'
                                               ? '登录'
                                               : '注册',
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                      style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600),
                                     ),
                             ),
                           ),
@@ -413,7 +473,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     _confirmEmailController.clear();
                                   });
                                 },
-                                child: const Text('返回', style: TextStyle(color: Color(0xFF8E8E93))),
+                                child: const Text('返回',
+                                    style: TextStyle(color: Color(0xFF8E8E93))),
                               ),
                             ),
                           ],
@@ -427,31 +488,38 @@ class _LoginScreenState extends State<LoginScreen> {
                   // 错误提示
                   if (_error != null)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFEBF0),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 20),
+                          const Icon(Icons.error_outline_rounded,
+                              color: Colors.redAccent, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+                            child: Text(_error!,
+                                style: const TextStyle(
+                                    color: Colors.redAccent, fontSize: 13)),
                           ),
                         ],
                       ),
                     ),
 
                   // 找回密码入口（登录状态 + 密码错误时显示）
-                  if (_pageState == 'login' && _error != null && _error!.contains('密码')) ...[
+                  if (_pageState == 'login' &&
+                      _error != null &&
+                      _error!.contains('密码')) ...[
                     const SizedBox(height: 12),
                     Center(
                       child: TextButton.icon(
                         onPressed: _showForgotPasswordDialog,
                         icon: const Icon(Icons.help_outline_rounded, size: 16),
                         label: const Text('忘记密码？通过伴侣验证找回'),
-                        style: TextButton.styleFrom(foregroundColor: Colors.orange.shade700),
+                        style: TextButton.styleFrom(
+                            foregroundColor: Colors.orange.shade700),
                       ),
                     ),
                   ],
@@ -459,7 +527,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 40),
                   const Text(
                     '登录即表示同意《用户协议》与《隐私权政策》\n所有数据均妥善存储于情侣专属加密空间中。',
-                    style: TextStyle(fontSize: 11, color: Color(0xFFC7C7CC), height: 1.5),
+                    style: TextStyle(
+                        fontSize: 11, color: Color(0xFFC7C7CC), height: 1.5),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -476,7 +545,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2))
+                  ],
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.dns_rounded),
@@ -583,10 +657,13 @@ class DatabaseConfigBottomSheet extends StatefulWidget {
   const DatabaseConfigBottomSheet({super.key});
 
   @override
-  State<DatabaseConfigBottomSheet> createState() => _DatabaseConfigBottomSheetState();
+  State<DatabaseConfigBottomSheet> createState() =>
+      _DatabaseConfigBottomSheetState();
 }
 
 class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
+  static const List<DbType> _availableDbTypes = [DbType.webdav, DbType.local];
+
   late DbType _selectedType;
 
   // Supabase
@@ -682,7 +759,9 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
     );
 
     // 本地模式免密登录
-    await context.read<AuthProvider>().loginWithPassword('local@love.app', 'loveapp2024');
+    await context
+        .read<AuthProvider>()
+        .loginWithPassword('local@love.app', 'loveapp2024');
   }
 
   String _getDbTypeName(DbType type) {
@@ -747,7 +826,7 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: DbType.values.map((type) {
+            children: _availableDbTypes.map((type) {
               final isSelected = _selectedType == type;
               return ChoiceChip(
                 label: Text(_getDbTypeName(type)),
@@ -759,15 +838,19 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
                     });
                   }
                 },
-                selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                selectedColor:
+                    theme.colorScheme.primary.withValues(alpha: 0.15),
                 checkmarkColor: theme.colorScheme.primary,
                 labelStyle: TextStyle(
-                  color: isSelected ? theme.colorScheme.primary : const Color(0xFF1C1C1E),
+                  color: isSelected
+                      ? theme.colorScheme.primary
+                      : const Color(0xFF1C1C1E),
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
                 backgroundColor: const Color(0xFFF2F2F7),
                 side: BorderSide.none,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               );
             }).toList(),
           ),
@@ -776,7 +859,8 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
 
           // 动态输入框
           if (_selectedType == DbType.supabase) ...[
-            const Text('Supabase 连接参数', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Supabase 连接参数',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             TextField(
               controller: _supaUrlController,
@@ -811,7 +895,8 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.cloud_done_rounded, size: 16, color: Colors.green.shade600),
+                  Icon(Icons.cloud_done_rounded,
+                      size: 16, color: Colors.green.shade600),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
@@ -849,7 +934,8 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
             const SizedBox(height: 8),
             const Text(
               '双方使用同一坚果云账号登录即可自动同步。应用密码非坚果云登录密码，请在坚果云网页版 → 安全设置 → 第三方应用管理 中生成。',
-              style: TextStyle(fontSize: 11, color: Color(0xFF8E8E93), height: 1.4),
+              style: TextStyle(
+                  fontSize: 11, color: Color(0xFF8E8E93), height: 1.4),
             ),
           ] else if (_selectedType == DbType.local) ...[
             Container(
@@ -863,12 +949,14 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
                 children: [
                   const Text(
                     '🍃 纯本地离线单机模式说明',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
                   ),
                   const SizedBox(height: 6),
                   const Text(
                     '所有数据（日记、心愿、纪念日、生理期、亲密记）将完全存储于当前手机的本地数据库中，无需任何云端连接，数据私密安全。',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93), height: 1.4),
+                    style: TextStyle(
+                        fontSize: 13, color: Color(0xFF8E8E93), height: 1.4),
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
@@ -889,7 +977,8 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
               ),
             ),
           ] else if (_selectedType == DbType.leancloud) ...[
-            const Text('LeanCloud / TDS 参数', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('LeanCloud / TDS 参数',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             TextField(
               controller: _lcIdController,
@@ -931,11 +1020,14 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
                 onPressed: _handleSave,
-                child: const Text('保存并应用配置', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: const Text('保存并应用配置',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
         ],

@@ -2,9 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
-import 'package:dio/dio.dart';
 import 'db_config_service.dart';
-import 'http_client.dart';
 
 class SupabaseService {
   static String get _baseUrl => DbConfigService.supabaseUrl;
@@ -24,12 +22,6 @@ class SupabaseService {
   }
 
   /// Dio 客户端（带拦截器和重试）
-  static final Dio _dio = HttpClient.createWithHeaders({
-    'apikey': DbConfigService.supabaseAnonKey,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=representation',
-  });
-
   /// 注册或登录（邮箱验证模式）
   static Future<Map<String, dynamic>> registerOrLogin(
       String email, String password) async {
@@ -37,7 +29,8 @@ class SupabaseService {
 
     try {
       // 1. 查询用户 Profile 是否已存在（通过 email）
-      final profileUrl = Uri.parse('$_baseUrl/rest/v1/Profile?email=eq.${Uri.encodeComponent(cleanEmail)}');
+      final profileUrl = Uri.parse(
+          '$_baseUrl/rest/v1/Profile?email=eq.${Uri.encodeComponent(cleanEmail)}');
       final profileRes = await http.get(profileUrl, headers: _headers);
 
       bool userExists = false;
@@ -52,7 +45,8 @@ class SupabaseService {
 
       if (userExists && existingProfile != null) {
         // 2. 用户存在，尝试登录
-        final loginUrl = Uri.parse('$_baseUrl/auth/v1/token?grant_type=password');
+        final loginUrl =
+            Uri.parse('$_baseUrl/auth/v1/token?grant_type=password');
         final loginRes = await http.post(
           loginUrl,
           headers: _headers,
@@ -70,7 +64,8 @@ class SupabaseService {
             'objectId': existingProfile['objectId'],
             'email': cleanEmail,
             'username': existingProfile['username'] ?? cleanEmail,
-            'nickname': existingProfile['nickname'] ?? cleanEmail.split('@').first,
+            'nickname':
+                existingProfile['nickname'] ?? cleanEmail.split('@').first,
             'invite_code': existingProfile['invite_code'],
             'status': existingProfile['status'] ?? 'single',
             'gender': existingProfile['gender'] ?? 'male',
@@ -83,12 +78,14 @@ class SupabaseService {
           return finalUser;
         } else {
           final errorData = jsonDecode(loginRes.body);
-          final errorMsg = errorData['error_description'] ?? errorData['msg'] ?? '';
+          final errorMsg =
+              errorData['error_description'] ?? errorData['msg'] ?? '';
 
           // 邮箱未验证
           if (errorMsg.contains('Email not confirmed') ||
               errorMsg.contains('email_not_confirmed') ||
-              errorData['error'] == 'invalid_grant' && errorMsg.contains('confirm')) {
+              errorData['error'] == 'invalid_grant' &&
+                  errorMsg.contains('confirm')) {
             throw Exception('邮箱尚未验证，请先点击邮件中的验证链接后再登录。');
           }
 
@@ -146,15 +143,17 @@ class SupabaseService {
             body: jsonEncode(profileBody),
           );
 
-          if (createProfileRes.statusCode != 200 && createProfileRes.statusCode != 201) {
+          if (createProfileRes.statusCode != 200 &&
+              createProfileRes.statusCode != 201) {
             final errorBody = createProfileRes.body;
-            if (errorBody.contains('row-level security') || errorBody.contains('42501') || createProfileRes.statusCode == 401) {
-              throw Exception(
-                '注册认证成功，但创建公开资料失败：数据库安全策略(RLS)阻止了写入。\n\n'
-                '$_rlsFixHint'
-              );
+            if (errorBody.contains('row-level security') ||
+                errorBody.contains('42501') ||
+                createProfileRes.statusCode == 401) {
+              throw Exception('注册认证成功，但创建公开资料失败：数据库安全策略(RLS)阻止了写入。\n\n'
+                  '$_rlsFixHint');
             }
-            throw Exception('创建公开资料 Profile 失败，错误码: ${createProfileRes.statusCode}，详情: $errorBody');
+            throw Exception(
+                '创建公开资料 Profile 失败，错误码: ${createProfileRes.statusCode}，详情: $errorBody');
           }
 
           // 检查是否需要邮箱验证
@@ -173,8 +172,13 @@ class SupabaseService {
           return finalUser;
         } else {
           final errorData = jsonDecode(signupRes.body);
-          final String msg = errorData['msg'] ?? errorData['error_description'] ?? errorData['message'] ?? '注册失败，请重试';
-          if (msg.contains('already registered') || msg.contains('already exists') || msg.contains('user_already_exists')) {
+          final String msg = errorData['msg'] ??
+              errorData['error_description'] ??
+              errorData['message'] ??
+              '注册失败，请重试';
+          if (msg.contains('already registered') ||
+              msg.contains('already exists') ||
+              msg.contains('user_already_exists')) {
             throw Exception('该邮箱已注册，请直接登录。');
           }
           throw Exception(msg);
@@ -182,7 +186,9 @@ class SupabaseService {
       }
     } catch (e) {
       final errStr = e.toString();
-      if (errStr.contains('RLS') || errStr.contains('行级安全') || errStr.contains('安全策略')) {
+      if (errStr.contains('RLS') ||
+          errStr.contains('行级安全') ||
+          errStr.contains('安全策略')) {
         rethrow;
       }
       // 验证邮箱的提示不算错误，直接抛出
@@ -210,7 +216,8 @@ class SupabaseService {
   /// 返回 'exists' | 'not_found' | 'error'
   static Future<String> checkEmailExists(String email) async {
     try {
-      final url = Uri.parse('$_baseUrl/rest/v1/Profile?email=eq.${Uri.encodeComponent(email.trim().toLowerCase())}&select=objectId');
+      final url = Uri.parse(
+          '$_baseUrl/rest/v1/Profile?email=eq.${Uri.encodeComponent(email.trim().toLowerCase())}&select=objectId');
       final res = await http.get(url, headers: _headers);
       if (res.statusCode == 200) {
         final List list = jsonDecode(res.body);
@@ -230,7 +237,8 @@ class SupabaseService {
     required String newPassword,
   }) async {
     // 1. 查找我的 Profile
-    final myProfileUrl = Uri.parse('$_baseUrl/rest/v1/Profile?email=eq.${Uri.encodeComponent(myEmail.trim().toLowerCase())}&select=objectId,couple_id');
+    final myProfileUrl = Uri.parse(
+        '$_baseUrl/rest/v1/Profile?email=eq.${Uri.encodeComponent(myEmail.trim().toLowerCase())}&select=objectId,couple_id');
     final myRes = await http.get(myProfileUrl, headers: _headers);
     if (myRes.statusCode != 200) throw Exception('查询失败');
 
@@ -242,7 +250,8 @@ class SupabaseService {
     if (coupleId == null) throw Exception('您尚未配对，无法通过伴侣验证找回密码');
 
     // 2. 查找伴侣的 Profile（通过 CoupleRelation）
-    final relationUrl = Uri.parse('$_baseUrl/rest/v1/CoupleRelation?couple_id=eq.$coupleId&select=user1_id,user2_id');
+    final relationUrl = Uri.parse(
+        '$_baseUrl/rest/v1/CoupleRelation?couple_id=eq.$coupleId&select=user1_id,user2_id');
     final relRes = await http.get(relationUrl, headers: _headers);
     if (relRes.statusCode != 200) throw Exception('查询配对关系失败');
 
@@ -256,7 +265,8 @@ class SupabaseService {
         : relation['user1_id'];
 
     // 3. 查找伴侣的邮箱
-    final partnerUrl = Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$partnerUserId&select=email');
+    final partnerUrl = Uri.parse(
+        '$_baseUrl/rest/v1/Profile?objectId=eq.$partnerUserId&select=email');
     final partnerRes = await http.get(partnerUrl, headers: _headers);
     if (partnerRes.statusCode != 200) throw Exception('查询伴侣信息失败');
 
@@ -267,7 +277,8 @@ class SupabaseService {
     if (partnerEmailInDb == null) throw Exception('伴侣未绑定邮箱');
 
     // 4. 验证伴侣邮箱
-    if (partnerEmailInDb.trim().toLowerCase() != partnerEmail.trim().toLowerCase()) {
+    if (partnerEmailInDb.trim().toLowerCase() !=
+        partnerEmail.trim().toLowerCase()) {
       throw Exception('伴侣邮箱验证失败，请确认输入正确');
     }
 
@@ -307,7 +318,8 @@ class SupabaseService {
     if (user == null) return null;
 
     final userId = user['objectId'];
-    final url = Uri.parse('$_baseUrl/rest/v1/CoupleRelation?or=(user1_id.eq.$userId,user2_id.eq.$userId)');
+    final url = Uri.parse(
+        '$_baseUrl/rest/v1/CoupleRelation?or=(user1_id.eq.$userId,user2_id.eq.$userId)');
 
     try {
       final response = await http.get(url, headers: _headers);
@@ -321,11 +333,14 @@ class SupabaseService {
           // 更新本地用户状态为已配对
           user['status'] = 'paired';
           user['couple_id'] = relation['couple_id'];
-          user['partner_id'] = relation['user1_id'] == userId ? relation['user2_id'] : relation['user1_id'];
+          user['partner_id'] = relation['user1_id'] == userId
+              ? relation['user2_id']
+              : relation['user1_id'];
           await _saveUserToLocal(user);
 
           // 同步更新云端的 Profile 表状态
-          final profileUrl = Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$userId');
+          final profileUrl =
+              Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$userId');
           await http.patch(
             profileUrl,
             headers: _headers,
@@ -379,20 +394,20 @@ class SupabaseService {
     // 自检：当前用户的 invite_code 是否存在（注册时 Profile 是否创建成功）
     final myInviteCode = currentUser['invite_code'] as String?;
     if (myInviteCode == null || myInviteCode.isEmpty) {
-      throw Exception(
-        '您的账号资料未成功写入数据库，无法进行配对。\n'
-        '这通常是因为数据库安全策略(RLS)阻止了注册时的资料创建。\n\n'
-        '$_rlsFixHint\n\n'
-        '修复后请退出账号并重新注册。'
-      );
+      throw Exception('您的账号资料未成功写入数据库，无法进行配对。\n'
+          '这通常是因为数据库安全策略(RLS)阻止了注册时的资料创建。\n\n'
+          '$_rlsFixHint\n\n'
+          '修复后请退出账号并重新注册。');
     }
 
     final currentUserId = currentUser['objectId'];
-    final currentUserNickname = currentUser['nickname'] ?? currentUser['username'];
+    final currentUserNickname =
+        currentUser['nickname'] ?? currentUser['username'];
 
     try {
       // 1. 查询持有此邀请码的另一位用户 Profile
-      final profileUrl = Uri.parse('$_baseUrl/rest/v1/Profile?invite_code=eq.${Uri.encodeComponent(inviteCode)}');
+      final profileUrl = Uri.parse(
+          '$_baseUrl/rest/v1/Profile?invite_code=eq.${Uri.encodeComponent(inviteCode)}');
       final response = await http.get(profileUrl, headers: _headers);
 
       if (response.statusCode != 200) {
@@ -413,18 +428,21 @@ class SupabaseService {
 
       final partnerUser = results.first;
       final partnerId = partnerUser['objectId'];
-      final partnerNickname = partnerUser['nickname'] ?? partnerUser['username'];
+      final partnerNickname =
+          partnerUser['nickname'] ?? partnerUser['username'];
 
       if (partnerId == currentUserId) {
         throw Exception('不能与自己配对哦！');
       }
 
-      if (partnerUser['status'] == 'paired' || currentUser['status'] == 'paired') {
+      if (partnerUser['status'] == 'paired' ||
+          currentUser['status'] == 'paired') {
         throw Exception('您或对方已经处于配对状态了');
       }
 
       // 2. 创建 CoupleRelation 配对关系
-      final coupleId = 'couple_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
+      final coupleId =
+          'couple_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
       final relationBody = {
         'objectId': 'relation_${DateTime.now().millisecondsSinceEpoch}',
         'user1_id': partnerId,
@@ -446,9 +464,11 @@ class SupabaseService {
         body: jsonEncode(relationBody),
       );
 
-      if (createResponse.statusCode == 201 || createResponse.statusCode == 200) {
+      if (createResponse.statusCode == 201 ||
+          createResponse.statusCode == 200) {
         // 更新两人的 Profile
-        final updatePartnerUrl = Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$partnerId');
+        final updatePartnerUrl =
+            Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$partnerId');
         final updatePartnerRes = await http.patch(
           updatePartnerUrl,
           headers: _headers,
@@ -458,15 +478,21 @@ class SupabaseService {
             'partner_id': currentUserId,
           }),
         );
-        if (updatePartnerRes.statusCode != 200 && updatePartnerRes.statusCode != 204) {
+        if (updatePartnerRes.statusCode != 200 &&
+            updatePartnerRes.statusCode != 204) {
           final errorBody = updatePartnerRes.body;
-          if (errorBody.contains('row-level security') || errorBody.contains('42501') || updatePartnerRes.statusCode == 401) {
-            throw Exception('更新对方资料失败：数据库未关闭 Profile 表的行级安全策略（RLS）。请在 SQL Editor 执行：\nALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;');
+          if (errorBody.contains('row-level security') ||
+              errorBody.contains('42501') ||
+              updatePartnerRes.statusCode == 401) {
+            throw Exception(
+                '更新对方资料失败：数据库未关闭 Profile 表的行级安全策略（RLS）。请在 SQL Editor 执行：\nALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;');
           }
-          throw Exception('更新对方公开资料失败，状态码: ${updatePartnerRes.statusCode}，详情: $errorBody');
+          throw Exception(
+              '更新对方公开资料失败，状态码: ${updatePartnerRes.statusCode}，详情: $errorBody');
         }
 
-        final updateSelfUrl = Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$currentUserId');
+        final updateSelfUrl =
+            Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$currentUserId');
         final updateSelfRes = await http.patch(
           updateSelfUrl,
           headers: _headers,
@@ -476,22 +502,31 @@ class SupabaseService {
             'partner_id': partnerId,
           }),
         );
-        if (updateSelfRes.statusCode != 200 && updateSelfRes.statusCode != 204) {
+        if (updateSelfRes.statusCode != 200 &&
+            updateSelfRes.statusCode != 204) {
           final errorBody = updateSelfRes.body;
-          if (errorBody.contains('row-level security') || errorBody.contains('42501') || updateSelfRes.statusCode == 401) {
-            throw Exception('更新个人资料失败：数据库未关闭 Profile 表的行级安全策略（RLS）。请在 SQL Editor 执行：\nALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;');
+          if (errorBody.contains('row-level security') ||
+              errorBody.contains('42501') ||
+              updateSelfRes.statusCode == 401) {
+            throw Exception(
+                '更新个人资料失败：数据库未关闭 Profile 表的行级安全策略（RLS）。请在 SQL Editor 执行：\nALTER TABLE "Profile" DISABLE ROW LEVEL SECURITY;');
           }
-          throw Exception('更新个人公开资料失败，状态码: ${updateSelfRes.statusCode}，详情: $errorBody');
+          throw Exception(
+              '更新个人公开资料失败，状态码: ${updateSelfRes.statusCode}，详情: $errorBody');
         }
 
         // 成功配对后更新本地状态
         await checkPairStatus();
       } else {
         final errorBody = createResponse.body;
-        if (errorBody.contains('row-level security') || errorBody.contains('42501') || createResponse.statusCode == 401) {
-          throw Exception('创建配对关系失败：数据库未关闭 CoupleRelation 表的行级安全策略（RLS）。请在 SQL Editor 执行：\nALTER TABLE "CoupleRelation" DISABLE ROW LEVEL SECURITY;');
+        if (errorBody.contains('row-level security') ||
+            errorBody.contains('42501') ||
+            createResponse.statusCode == 401) {
+          throw Exception(
+              '创建配对关系失败：数据库未关闭 CoupleRelation 表的行级安全策略（RLS）。请在 SQL Editor 执行：\nALTER TABLE "CoupleRelation" DISABLE ROW LEVEL SECURITY;');
         }
-        throw Exception('创建关系失败，服务器返回码: ${createResponse.statusCode}，详情: $errorBody');
+        throw Exception(
+            '创建关系失败，服务器返回码: ${createResponse.statusCode}，详情: $errorBody');
       }
     } catch (e) {
       print("pairWithInviteCode error: $e");
@@ -551,7 +586,8 @@ class SupabaseService {
     if (relation == null) throw Exception('未找到配对关系，无法更新');
 
     final objectId = relation['objectId'];
-    final url = Uri.parse('$_baseUrl/rest/v1/CoupleRelation?objectId=eq.$objectId');
+    final url =
+        Uri.parse('$_baseUrl/rest/v1/CoupleRelation?objectId=eq.$objectId');
 
     final updateBody = {
       'user1_name': user1Name,
@@ -574,15 +610,18 @@ class SupabaseService {
       if (response.statusCode == 200 || response.statusCode == 204) {
         if (currentUser != null) {
           final currentUserId = currentUser['objectId'];
-          final currentGender = relation['user1_id'] == currentUserId ? user1Gender : user2Gender;
-          final currentNickname = relation['user1_id'] == currentUserId ? user1Name : user2Name;
-          
+          final currentGender =
+              relation['user1_id'] == currentUserId ? user1Gender : user2Gender;
+          final currentNickname =
+              relation['user1_id'] == currentUserId ? user1Name : user2Name;
+
           currentUser['gender'] = currentGender;
           currentUser['nickname'] = currentNickname;
           await _saveUserToLocal(currentUser);
 
           // 更新本地用户表在云端的字段
-          final profileUrl = Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$currentUserId');
+          final profileUrl =
+              Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$currentUserId');
           await http.patch(
             profileUrl,
             headers: _headers,
@@ -610,9 +649,11 @@ class SupabaseService {
 
     if (currentUser != null) {
       final currentUserId = currentUser['objectId'];
-      final currentGender = relation['user1_id'] == currentUserId ? user1Gender : user2Gender;
-      final currentNickname = relation['user1_id'] == currentUserId ? user1Name : user2Name;
-      
+      final currentGender =
+          relation['user1_id'] == currentUserId ? user1Gender : user2Gender;
+      final currentNickname =
+          relation['user1_id'] == currentUserId ? user1Name : user2Name;
+
       currentUser['gender'] = currentGender;
       currentUser['nickname'] = currentNickname;
       await _saveUserToLocal(currentUser);
@@ -629,7 +670,8 @@ class SupabaseService {
 
     // 1. 获取最新云端计数以防止冲突覆盖
     try {
-      final getUrl = Uri.parse('$_baseUrl/rest/v1/CoupleRelation?objectId=eq.$objectId&select=heartbeat_count');
+      final getUrl = Uri.parse(
+          '$_baseUrl/rest/v1/CoupleRelation?objectId=eq.$objectId&select=heartbeat_count');
       final res = await http.get(getUrl, headers: _headers);
       if (res.statusCode == 200) {
         final List list = jsonDecode(res.body);
@@ -642,7 +684,8 @@ class SupabaseService {
     final newCount = currentCount + 1;
 
     try {
-      final patchUrl = Uri.parse('$_baseUrl/rest/v1/CoupleRelation?objectId=eq.$objectId');
+      final patchUrl =
+          Uri.parse('$_baseUrl/rest/v1/CoupleRelation?objectId=eq.$objectId');
       await http.patch(
         patchUrl,
         headers: _headers,
@@ -689,7 +732,8 @@ class SupabaseService {
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
-      final url = Uri.parse('$_baseUrl/rest/v1/Diary?couple_id=eq.$coupleId&order=date.desc');
+      final url = Uri.parse(
+          '$_baseUrl/rest/v1/Diary?couple_id=eq.$coupleId&order=date.desc');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
@@ -710,7 +754,7 @@ class SupabaseService {
           }
           return map;
         }).toList();
-        
+
         final box = Hive.box('diaries');
         await box.put('list', list);
         return list;
@@ -723,8 +767,7 @@ class SupabaseService {
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
-        (cached as List).map((e) => Map<String, dynamic>.from(e as Map))
-      );
+          (cached as List).map((e) => Map<String, dynamic>.from(e as Map)));
     }
     return [];
   }
@@ -742,7 +785,8 @@ class SupabaseService {
     if (user == null || user['couple_id'] == null) throw Exception('未登录');
 
     final coupleId = user['couple_id'];
-    final finalObjectId = objectId ?? 'offline_diary_${DateTime.now().millisecondsSinceEpoch}';
+    final finalObjectId =
+        objectId ?? 'offline_diary_${DateTime.now().millisecondsSinceEpoch}';
     final body = {
       'objectId': finalObjectId,
       'couple_id': coupleId,
@@ -759,7 +803,8 @@ class SupabaseService {
 
     try {
       // 查询是否存在
-      final checkUrl = Uri.parse('$_baseUrl/rest/v1/Diary?objectId=eq.$finalObjectId&select=objectId');
+      final checkUrl = Uri.parse(
+          '$_baseUrl/rest/v1/Diary?objectId=eq.$finalObjectId&select=objectId');
       final checkRes = await http.get(checkUrl, headers: _headers);
       bool exists = false;
       if (checkRes.statusCode == 200) {
@@ -768,7 +813,8 @@ class SupabaseService {
       }
 
       if (exists) {
-        final url = Uri.parse('$_baseUrl/rest/v1/Diary?objectId=eq.$finalObjectId');
+        final url =
+            Uri.parse('$_baseUrl/rest/v1/Diary?objectId=eq.$finalObjectId');
         await http.patch(url, headers: _headers, body: jsonEncode(body));
       } else {
         final url = Uri.parse('$_baseUrl/rest/v1/Diary');
@@ -782,8 +828,7 @@ class SupabaseService {
     final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
 
     final index = list.indexWhere((item) => item['objectId'] == finalObjectId);
     if (index != -1) {
@@ -805,8 +850,7 @@ class SupabaseService {
     final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
     list.removeWhere((item) => item['objectId'] == objectId);
     await box.put('list', list);
   }
@@ -818,13 +862,14 @@ class SupabaseService {
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
-      final url = Uri.parse('$_baseUrl/rest/v1/Wish?couple_id=eq.$coupleId&order=createdAt.asc');
+      final url = Uri.parse(
+          '$_baseUrl/rest/v1/Wish?couple_id=eq.$coupleId&order=createdAt.asc');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
         final List results = jsonDecode(response.body);
         final list = List<Map<String, dynamic>>.from(results);
-        
+
         final box = Hive.box('wishes');
         await box.put('list', list);
         return list;
@@ -837,8 +882,7 @@ class SupabaseService {
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
-        (cached as List).map((e) => Map<String, dynamic>.from(e as Map))
-      );
+          (cached as List).map((e) => Map<String, dynamic>.from(e as Map)));
     }
     return [];
   }
@@ -872,8 +916,7 @@ class SupabaseService {
     final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
     list.add(body);
     await box.put('list', list);
   }
@@ -894,12 +937,12 @@ class SupabaseService {
     final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
     final index = list.indexWhere((item) => item['objectId'] == objectId);
     if (index != -1) {
       list[index]['completed'] = completed;
-      list[index]['completed_at'] = completed ? DateTime.now().toIso8601String() : '';
+      list[index]['completed_at'] =
+          completed ? DateTime.now().toIso8601String() : '';
     }
     await box.put('list', list);
   }
@@ -915,8 +958,7 @@ class SupabaseService {
     final box = Hive.box('wishes');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
     list.removeWhere((item) => item['objectId'] == objectId);
     await box.put('list', list);
   }
@@ -928,13 +970,14 @@ class SupabaseService {
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
-      final url = Uri.parse('$_baseUrl/rest/v1/Anniversary?couple_id=eq.$coupleId&order=date.asc');
+      final url = Uri.parse(
+          '$_baseUrl/rest/v1/Anniversary?couple_id=eq.$coupleId&order=date.asc');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
         final List results = jsonDecode(response.body);
         final list = List<Map<String, dynamic>>.from(results);
-        
+
         final box = Hive.box('anniversaries');
         await box.put('list', list);
         return list;
@@ -947,8 +990,7 @@ class SupabaseService {
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
-        (cached as List).map((e) => Map<String, dynamic>.from(e as Map))
-      );
+          (cached as List).map((e) => Map<String, dynamic>.from(e as Map)));
     }
     return [];
   }
@@ -962,7 +1004,8 @@ class SupabaseService {
     if (user == null || user['couple_id'] == null) throw Exception('未登录');
 
     final coupleId = user['couple_id'];
-    final objectId = 'offline_anniversary_${DateTime.now().millisecondsSinceEpoch}';
+    final objectId =
+        'offline_anniversary_${DateTime.now().millisecondsSinceEpoch}';
     final body = {
       'objectId': objectId,
       'couple_id': coupleId,
@@ -983,8 +1026,7 @@ class SupabaseService {
     final box = Hive.box('anniversaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
     list.add(body);
     list.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
     await box.put('list', list);
@@ -997,13 +1039,14 @@ class SupabaseService {
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
-      final url = Uri.parse('$_baseUrl/rest/v1/PeriodLog?couple_id=eq.$coupleId&limit=500');
+      final url = Uri.parse(
+          '$_baseUrl/rest/v1/PeriodLog?couple_id=eq.$coupleId&limit=500');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
         final List results = jsonDecode(response.body);
         final list = results.map((e) => e['date'] as String).toList();
-        
+
         final box = Hive.box('period_logs');
         await box.put('list', list);
         return list;
@@ -1028,7 +1071,8 @@ class SupabaseService {
     try {
       if (isPeriod) {
         // 检查是否存在
-        final queryUrl = Uri.parse('$_baseUrl/rest/v1/PeriodLog?couple_id=eq.$coupleId&date=eq.$dateString&select=objectId');
+        final queryUrl = Uri.parse(
+            '$_baseUrl/rest/v1/PeriodLog?couple_id=eq.$coupleId&date=eq.$dateString&select=objectId');
         final checkRes = await http.get(queryUrl, headers: _headers);
         bool exists = false;
         if (checkRes.statusCode == 200) {
@@ -1052,7 +1096,8 @@ class SupabaseService {
         }
       } else {
         // 删除记录
-        final deleteUrl = Uri.parse('$_baseUrl/rest/v1/PeriodLog?couple_id=eq.$coupleId&date=eq.$dateString');
+        final deleteUrl = Uri.parse(
+            '$_baseUrl/rest/v1/PeriodLog?couple_id=eq.$coupleId&date=eq.$dateString');
         await http.delete(deleteUrl, headers: _headers);
       }
     } catch (e) {
@@ -1079,7 +1124,8 @@ class SupabaseService {
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
-      final url = Uri.parse('$_baseUrl/rest/v1/IntimacyLog?couple_id=eq.$coupleId&order=date.desc');
+      final url = Uri.parse(
+          '$_baseUrl/rest/v1/IntimacyLog?couple_id=eq.$coupleId&order=date.desc');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
@@ -1098,13 +1144,13 @@ class SupabaseService {
     final cached = box.get('list');
     if (cached != null) {
       return List<Map<String, dynamic>>.from(
-        (cached as List).map((e) => Map<String, dynamic>.from(e as Map))
-      );
+          (cached as List).map((e) => Map<String, dynamic>.from(e as Map)));
     }
     return [];
   }
 
-  static Future<void> toggleIntimacyLog(String dateString, bool isIntimacy) async {
+  static Future<void> toggleIntimacyLog(
+      String dateString, bool isIntimacy) async {
     final user = await getCurrentUser();
     if (user == null || user['couple_id'] == null) throw Exception('未登录');
     final coupleId = user['couple_id'];
@@ -1112,7 +1158,8 @@ class SupabaseService {
     try {
       if (isIntimacy) {
         // 检查是否存在
-        final queryUrl = Uri.parse('$_baseUrl/rest/v1/IntimacyLog?couple_id=eq.$coupleId&date=eq.$dateString&select=objectId');
+        final queryUrl = Uri.parse(
+            '$_baseUrl/rest/v1/IntimacyLog?couple_id=eq.$coupleId&date=eq.$dateString&select=objectId');
         final checkRes = await http.get(queryUrl, headers: _headers);
         bool exists = false;
         if (checkRes.statusCode == 200) {
@@ -1136,7 +1183,8 @@ class SupabaseService {
         }
       } else {
         // 删除记录
-        final deleteUrl = Uri.parse('$_baseUrl/rest/v1/IntimacyLog?couple_id=eq.$coupleId&date=eq.$dateString');
+        final deleteUrl = Uri.parse(
+            '$_baseUrl/rest/v1/IntimacyLog?couple_id=eq.$coupleId&date=eq.$dateString');
         await http.delete(deleteUrl, headers: _headers);
       }
     } catch (e) {
@@ -1147,8 +1195,7 @@ class SupabaseService {
     final box = Hive.box('intimacy_logs');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
 
     if (isIntimacy) {
       final exists = list.any((item) => item['date'] == dateString);
@@ -1178,7 +1225,8 @@ class SupabaseService {
     if (user == null || user['couple_id'] == null) throw Exception('未登录');
     final coupleId = user['couple_id'];
 
-    final finalObjectId = objectId ?? 'offline_intimacy_${DateTime.now().millisecondsSinceEpoch}';
+    final finalObjectId =
+        objectId ?? 'offline_intimacy_${DateTime.now().millisecondsSinceEpoch}';
     final body = {
       'objectId': finalObjectId,
       'couple_id': coupleId,
@@ -1193,7 +1241,8 @@ class SupabaseService {
 
     try {
       // 检查是否存在
-      final checkUrl = Uri.parse('$_baseUrl/rest/v1/IntimacyLog?objectId=eq.$finalObjectId&select=objectId');
+      final checkUrl = Uri.parse(
+          '$_baseUrl/rest/v1/IntimacyLog?objectId=eq.$finalObjectId&select=objectId');
       final checkRes = await http.get(checkUrl, headers: _headers);
       bool exists = false;
       if (checkRes.statusCode == 200) {
@@ -1202,7 +1251,8 @@ class SupabaseService {
       }
 
       if (exists) {
-        final url = Uri.parse('$_baseUrl/rest/v1/IntimacyLog?objectId=eq.$finalObjectId');
+        final url = Uri.parse(
+            '$_baseUrl/rest/v1/IntimacyLog?objectId=eq.$finalObjectId');
         await http.patch(url, headers: _headers, body: jsonEncode(body));
       } else {
         final url = Uri.parse('$_baseUrl/rest/v1/IntimacyLog');
@@ -1216,8 +1266,7 @@ class SupabaseService {
     final box = Hive.box('intimacy_logs');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
-      rawList.map((e) => Map<String, dynamic>.from(e as Map))
-    );
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)));
 
     final index = list.indexWhere((item) => item['objectId'] == finalObjectId);
     if (index != -1) {
@@ -1258,9 +1307,11 @@ class SupabaseService {
     }
   }
 
-  static Future<Map<String, dynamic>?> fetchPartnerLocation(String partnerId) async {
+  static Future<Map<String, dynamic>?> fetchPartnerLocation(
+      String partnerId) async {
     try {
-      final url = Uri.parse('$_baseUrl/rest/v1/Profile?objectId=eq.$partnerId&select=nickname,latitude,longitude,location_updated_at');
+      final url = Uri.parse(
+          '$_baseUrl/rest/v1/Profile?objectId=eq.$partnerId&select=nickname,latitude,longitude,location_updated_at');
       final res = await http.get(url, headers: _headers);
       if (res.statusCode == 200) {
         final List list = jsonDecode(res.body);
@@ -1276,7 +1327,8 @@ class SupabaseService {
 
   static Future<List<Map<String, dynamic>>> fetchAllLocations() async {
     try {
-      final url = Uri.parse('$_baseUrl/rest/v1/Profile?select=objectId,username,nickname,latitude,longitude,location_updated_at&order=location_updated_at.desc');
+      final url = Uri.parse(
+          '$_baseUrl/rest/v1/Profile?select=objectId,username,nickname,latitude,longitude,location_updated_at&order=location_updated_at.desc');
       final res = await http.get(url, headers: _headers);
       if (res.statusCode == 200) {
         final List list = jsonDecode(res.body);
@@ -1296,7 +1348,8 @@ class SupabaseService {
 
   static Future<bool> _isInviteCodeUnique(String inviteCode) async {
     try {
-      final url = Uri.parse('$_baseUrl/rest/v1/Profile?invite_code=eq.${Uri.encodeComponent(inviteCode)}&select=objectId');
+      final url = Uri.parse(
+          '$_baseUrl/rest/v1/Profile?invite_code=eq.${Uri.encodeComponent(inviteCode)}&select=objectId');
       final res = await http.get(url, headers: _headers);
       if (res.statusCode == 200) {
         final List list = jsonDecode(res.body);
@@ -1310,7 +1363,8 @@ class SupabaseService {
   /// 返回 null 表示正常可访问；返回非空字符串表示具体的错误描述。
   static Future<String?> _diagnoseProfileAccess() async {
     try {
-      final url = Uri.parse('$_baseUrl/rest/v1/Profile?select=objectId&limit=1');
+      final url =
+          Uri.parse('$_baseUrl/rest/v1/Profile?select=objectId&limit=1');
       final res = await http.get(url, headers: _headers);
 
       if (res.statusCode == 401 || res.statusCode == 403) {

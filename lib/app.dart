@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'config/theme.dart';
 import 'config/router.dart';
@@ -6,24 +7,52 @@ import 'providers/theme_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/location_provider.dart';
 
-class ChongMiApp extends StatelessWidget {
+class ChongMiApp extends StatefulWidget {
   const ChongMiApp({super.key});
+
+  @override
+  State<ChongMiApp> createState() => _ChongMiAppState();
+}
+
+class _ChongMiAppState extends State<ChongMiApp> {
+  late final ThemeProvider _themeProvider;
+  late final AuthProvider _authProvider;
+  late final LocationProvider _locationProvider;
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _themeProvider = ThemeProvider();
+    _authProvider = AuthProvider()..checkLoginStatus();
+    _locationProvider = LocationProvider();
+    _router = createRouter(_authProvider);
+  }
+
+  @override
+  void dispose() {
+    _router.dispose();
+    _themeProvider.dispose();
+    _authProvider.dispose();
+    _locationProvider.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => AuthProvider()..checkLoginStatus()),
-        ChangeNotifierProvider(create: (_) => LocationProvider()),
+        ChangeNotifierProvider.value(value: _themeProvider),
+        ChangeNotifierProvider.value(value: _authProvider),
+        ChangeNotifierProvider.value(value: _locationProvider),
       ],
-      child: Consumer2<ThemeProvider, AuthProvider>(
-        builder: (context, themeProvider, authProvider, child) {
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
           return MaterialApp.router(
             title: '虫米',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.getTheme(themeProvider.currentTheme),
-            routerConfig: createRouter(authProvider),
+            routerConfig: _router,
           );
         },
       ),
