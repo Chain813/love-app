@@ -29,7 +29,6 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
-pubspec.lock
 
 # Symbolication related
 app.*.symbols
@@ -58,6 +57,7 @@ app.*.map.json
 # Hive
 *.hive
 *.lock
+!pubspec.lock
 
 # Local configurations and credentials
 lib/config/keys.dart

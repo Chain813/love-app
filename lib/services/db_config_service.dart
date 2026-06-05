@@ -11,6 +11,10 @@ enum DbType {
 class DbConfigService {
   static const String _boxName = 'db_settings';
   static const String _keyDbType = 'db_type';
+  static const String defaultWebdavUrl =
+      'https://love-app-webdav-proxy.chenlichong813.workers.dev/dav/';
+  static const String _legacyJianguoyunWebdavUrl =
+      'https://dav.jianguoyun.com/dav/';
 
   // LeanCloud Config Keys
   static const String _keyLcId = 'lc_id';
@@ -35,6 +39,7 @@ class DbConfigService {
     }
 
     _box = await Hive.openBox(_boxName, compactionStrategy: compactionStrategy);
+    await _migrateLegacyWebdavEndpoint();
 
     // 预打开应用常用的数据 Box 提升后续读写性能（减少磁盘 I/O 阻塞时间）
     await Future.wait([
@@ -44,7 +49,16 @@ class DbConfigService {
       Hive.openBox('anniversaries', compactionStrategy: compactionStrategy),
       Hive.openBox('period_logs', compactionStrategy: compactionStrategy),
       Hive.openBox('intimacy_logs', compactionStrategy: compactionStrategy),
+      Hive.openBox('settings', compactionStrategy: compactionStrategy),
+      Hive.openBox('daily_quote_cache', compactionStrategy: compactionStrategy),
     ]);
+  }
+
+  static Future<void> _migrateLegacyWebdavEndpoint() async {
+    final savedUrl = _box.get(_keyWebdavUrl) as String?;
+    if (savedUrl == _legacyJianguoyunWebdavUrl) {
+      await _box.put(_keyWebdavUrl, defaultWebdavUrl);
+    }
   }
 
   static DbType get currentDbType {
@@ -103,7 +117,7 @@ class DbConfigService {
 
   // --- WebDAV Getters/Setters ---
   static String get webdavUrl =>
-      _box.get(_keyWebdavUrl, defaultValue: 'https://dav.jianguoyun.com/dav/');
+      _box.get(_keyWebdavUrl, defaultValue: defaultWebdavUrl);
 
   static String get webdavUser => _box.get(_keyWebdavUser, defaultValue: '');
 

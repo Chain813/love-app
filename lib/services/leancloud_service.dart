@@ -551,7 +551,7 @@ class LeanCloudService {
       case DbType.supabase:
         return SupabaseService.updateLocation(latitude, longitude);
       case DbType.webdav:
-        return; // WebDAV 不支持
+        return WebdavService.updateLocation(latitude, longitude);
       case DbType.local:
         return LocalDbService.updateLocation(latitude, longitude);
       case DbType.leancloud:
@@ -566,7 +566,7 @@ class LeanCloudService {
       case DbType.supabase:
         return SupabaseService.fetchPartnerLocation(partnerId);
       case DbType.webdav:
-        return null;
+        return WebdavService.fetchPartnerLocation(partnerId);
       case DbType.local:
         return null;
       case DbType.leancloud:
@@ -580,7 +580,7 @@ class LeanCloudService {
       case DbType.supabase:
         return SupabaseService.fetchAllLocations();
       case DbType.webdav:
-        return [];
+        return WebdavService.fetchAllLocations();
       case DbType.local:
         return LocalDbService.fetchAllLocations();
       case DbType.leancloud:

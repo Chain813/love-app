@@ -60,9 +60,9 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>虫米需要访问您的位置以在情侣间共享实时位置</string>
+	<string>Chongmi needs your location to share it with your partner.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>虫米需要在后台访问您的位置以持续更新共享位置</string>
+	<string>Chongmi needs background location access to keep shared location updated.</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

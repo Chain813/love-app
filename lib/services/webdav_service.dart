@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'db_config_service.dart';
+import '../utils/sync_merge.dart';
 
 class _InvalidPairDataException implements Exception {
   const _InvalidPairDataException(this.message);
@@ -20,6 +21,8 @@ class WebdavService {
   static const String _keyRelation = 'couple_relation';
   static const String _keyRole = 'webdav_role';
   static const String _keyDeviceId = 'webdav_device_id';
+  static const String _keyLocations = 'webdav_locations';
+  static const String _keyPeriodRecords = 'period_records';
 
   static String get _webdavUrl {
     var url = DbConfigService.webdavUrl.trim();
@@ -36,6 +39,10 @@ class WebdavService {
     return _buildHeaders(_username, _password);
   }
 
+  static Uri _syncUri(String relativePath) {
+    return Uri.parse(_webdavUrl).resolve(relativePath);
+  }
+
   static Map<String, String> _buildHeaders(String username, String password) {
     final credentials = base64Encode(utf8.encode('$username:$password'));
     return {
@@ -49,7 +56,7 @@ class WebdavService {
       '无法连接坚果云 WebDAV，已自动检查：',
       if (statusCode != null) '1. 服务器返回状态码：$statusCode',
       if (statusCode == null) '1. 未收到服务器有效响应：$error',
-      '2. 请确认网络可以访问 https://dav.jianguoyun.com/dav/',
+      '2. 请确认网络可以访问 ${DbConfigService.defaultWebdavUrl}',
       '3. 请确认账号填写的是坚果云登录邮箱。',
       '4. 请确认密码是“第三方应用管理”里生成的应用授权密码，不是坚果云登录密码。',
       '5. 如果开启了代理、VPN 或公司网络限制，请切换网络后重试。',
@@ -58,7 +65,7 @@ class WebdavService {
     if (statusCode == 401 || statusCode == 403) {
       checks.add('判断：账号或应用授权密码不正确，或该账号没有 WebDAV 权限。');
     } else if (statusCode == 404) {
-      checks.add('判断：WebDAV 地址不正确，请使用 https://dav.jianguoyun.com/dav/。');
+      checks.add('判断：WebDAV 地址不正确，请使用 ${DbConfigService.defaultWebdavUrl}。');
     } else if (statusCode != null && statusCode >= 500) {
       checks.add('判断：坚果云服务端暂时不可用，请稍后重试。');
     }
@@ -254,16 +261,20 @@ class WebdavService {
   static Future<void> _createSyncDir() async {
     final client = http.Client();
     try {
-      final syncDirUrl = '$_webdavUrl/love_app_sync/';
-      final req = http.Request('MKCOL', Uri.parse(syncDirUrl))
-        ..headers.addAll(_headers);
-      final res = await client.send(req).timeout(const Duration(seconds: 10));
-      // 405 = 目录已存在，201 = 创建成功，均视为正常
-      if (res.statusCode != 201 && res.statusCode != 405) {
-        throw Exception(_connectionHelp(
-          'WebDAV sync directory creation failed',
-          statusCode: res.statusCode,
-        ));
+      for (final directory in const [
+        'love_app_sync/',
+        'love_app_sync/images/',
+      ]) {
+        final req = http.Request('MKCOL', _syncUri(directory))
+          ..headers.addAll(_headers);
+        final res = await client.send(req).timeout(const Duration(seconds: 10));
+        // 405 = 目录已存在，201 = 创建成功，均视为正常
+        if (res.statusCode != 201 && res.statusCode != 405) {
+          throw Exception(_connectionHelp(
+            'WebDAV sync directory creation failed',
+            statusCode: res.statusCode,
+          ));
+        }
       }
     } catch (e) {
       if (e is Exception && e.toString().contains('无法连接坚果云 WebDAV')) {
@@ -383,11 +394,10 @@ class WebdavService {
     final user = await getCurrentUser();
     if (user == null) return null;
 
-    final fileUrl = '$_webdavUrl/love_app_sync/couple_relation.json';
-
     try {
       final res = await http
-          .get(Uri.parse(fileUrl), headers: _headers)
+          .get(_syncUri('love_app_sync/couple_relation.json'),
+              headers: _headers)
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         final remoteRelation = _requireValidPairRelation(
@@ -546,10 +556,10 @@ class WebdavService {
   }
 
   static Future<void> clearCloudPairingRelation() async {
-    final fileUrl = '$_webdavUrl/love_app_sync/couple_relation.json';
     try {
       final res = await http
-          .delete(Uri.parse(fileUrl), headers: _headers)
+          .delete(_syncUri('love_app_sync/couple_relation.json'),
+              headers: _headers)
           .timeout(const Duration(seconds: 10));
       if (res.statusCode != 200 &&
           res.statusCode != 204 &&
@@ -594,7 +604,6 @@ class WebdavService {
   /// 带 ETag 乐观锁的上传，返回 true 表示成功，false 表示冲突需重试
   static Future<bool> _uploadFileWithLock(String fileName, dynamic data) async {
     try {
-      final fileUrl = '$_webdavUrl/love_app_sync/$fileName';
       final bodyStr = jsonEncode(data);
       final headers = Map<String, String>.from(_headers);
       final cachedEtag = _etags[fileName];
@@ -603,7 +612,7 @@ class WebdavService {
       }
       final res = await http
           .put(
-            Uri.parse(fileUrl),
+            _syncUri('love_app_sync/$fileName'),
             headers: headers,
             body: utf8.encode(bodyStr),
           )
@@ -650,9 +659,8 @@ class WebdavService {
 
   static Future<dynamic> _downloadFile(String fileName) async {
     try {
-      final fileUrl = '$_webdavUrl/love_app_sync/$fileName';
       final res = await http
-          .get(Uri.parse(fileUrl), headers: _headers)
+          .get(_syncUri('love_app_sync/$fileName'), headers: _headers)
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         return jsonDecode(utf8.decode(res.bodyBytes));
@@ -667,26 +675,105 @@ class WebdavService {
   static List<Map<String, dynamic>> _mergeLists(
       List<Map<String, dynamic>> localList,
       List<Map<String, dynamic>> remoteList) {
-    final Map<String, Map<String, dynamic>> map = {};
-    for (var item in localList) {
-      map[item['objectId']] = item;
-    }
-    for (var item in remoteList) {
-      final objectId = item['objectId'];
-      if (map.containsKey(objectId)) {
-        final localItem = map[objectId]!;
-        final localUpdate =
-            DateTime.tryParse(localItem['updatedAt'] ?? '') ?? DateTime(2000);
-        final remoteUpdate =
-            DateTime.tryParse(item['updatedAt'] ?? '') ?? DateTime(2000);
-        if (remoteUpdate.isAfter(localUpdate)) {
-          map[objectId] = item;
-        }
-      } else {
-        map[objectId] = item;
+    return SyncMerge.mergeRecords(localList, remoteList);
+  }
+
+  static List<Map<String, dynamic>> _recordsFromRawList(dynamic raw) {
+    if (raw is! List) return [];
+
+    final records = <Map<String, dynamic>>[];
+    for (final item in raw) {
+      if (item is Map) {
+        records.add(Map<String, dynamic>.from(item));
       }
     }
-    return map.values.toList();
+    return records;
+  }
+
+  static List<Map<String, dynamic>> _periodRecordsFromRaw(dynamic raw) {
+    if (raw is! List) return [];
+
+    final records = <Map<String, dynamic>>[];
+    for (final item in raw) {
+      if (item is String && item.isNotEmpty) {
+        records.add({
+          'objectId': item,
+          'date': item,
+          'updatedAt': DateTime.fromMillisecondsSinceEpoch(0).toIso8601String(),
+        });
+      } else if (item is Map) {
+        final record = Map<String, dynamic>.from(item);
+        final date =
+            record['date']?.toString() ?? record['objectId']?.toString();
+        if (date == null || date.isEmpty) continue;
+        record['objectId'] ??= date;
+        record['date'] ??= date;
+        record['updatedAt'] ??=
+            DateTime.fromMillisecondsSinceEpoch(0).toIso8601String();
+        records.add(record);
+      }
+    }
+    return records;
+  }
+
+  static List<Map<String, dynamic>> _loadPeriodRecords(Box box) {
+    final storedRecords = _periodRecordsFromRaw(box.get(_keyPeriodRecords));
+    if (storedRecords.isNotEmpty) return storedRecords;
+    return _periodRecordsFromRaw(box.get('list'));
+  }
+
+  static List<String> _periodDatesFromRecords(
+    Iterable<Map<String, dynamic>> records,
+  ) {
+    final dates = SyncMerge.visibleRecords(records)
+        .map((record) => record['date']?.toString() ?? '')
+        .where((date) => date.isNotEmpty)
+        .toSet()
+        .toList();
+    dates.sort();
+    return dates;
+  }
+
+  static Future<void> _storePeriodRecords(
+    Box box,
+    List<Map<String, dynamic>> records,
+  ) async {
+    await box.put(_keyPeriodRecords, records);
+    await box.put('list', _periodDatesFromRecords(records));
+  }
+
+  static List<Map<String, dynamic>> _loadCachedLocations() {
+    return _recordsFromRawList(Hive.box('user').get(_keyLocations));
+  }
+
+  static Future<List<Map<String, dynamic>>> _loadMergedLocations() async {
+    final localList = _loadCachedLocations();
+    final remoteRaw = await _downloadFile('locations.json');
+    if (remoteRaw is List) {
+      final remoteList = _recordsFromRawList(remoteRaw);
+      final merged = _mergeLists(localList, remoteList);
+      await Hive.box('user').put(_keyLocations, merged);
+      return merged;
+    }
+    return localList;
+  }
+
+  static Map<String, dynamic> _locationRecordForUser(
+    Map<String, dynamic> user,
+    double latitude,
+    double longitude,
+    String timestamp,
+  ) {
+    return {
+      'objectId': user['objectId']?.toString() ?? _username,
+      'username': user['username']?.toString() ?? _username,
+      'nickname': user['nickname']?.toString() ?? user['username']?.toString(),
+      'couple_id': user['couple_id'],
+      'latitude': latitude,
+      'longitude': longitude,
+      'location_updated_at': timestamp,
+      'updatedAt': timestamp,
+    };
   }
 
   // --- 图片上传/删除 ---
@@ -695,14 +782,16 @@ class WebdavService {
   static Future<String?> _uploadImageBytes(
       String fileName, List<int> bytes) async {
     try {
-      final fileUrl = '$_webdavUrl/love_app_sync/images/$fileName';
-      await http
+      final res = await http
           .put(
-            Uri.parse(fileUrl),
+            _syncUri('love_app_sync/images/$fileName'),
             headers: _headers,
             body: bytes,
           )
           .timeout(const Duration(seconds: 15));
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        return null;
+      }
       return fileName;
     } catch (e) {
       print('WebDAV upload image $fileName failed: $e');
@@ -713,9 +802,8 @@ class WebdavService {
   /// 删除 WebDAV 上的图片文件
   static Future<void> _deleteImageFile(String fileName) async {
     try {
-      final fileUrl = '$_webdavUrl/love_app_sync/images/$fileName';
       await http
-          .delete(Uri.parse(fileUrl), headers: _headers)
+          .delete(_syncUri('love_app_sync/images/$fileName'), headers: _headers)
           .timeout(const Duration(seconds: 10));
     } catch (e) {
       print('WebDAV delete image $fileName failed: $e');
@@ -737,14 +825,15 @@ class WebdavService {
 
       // 合并
       final merged = _mergeLists(localList, remoteList);
-      merged.sort((a, b) =>
+      final visible = SyncMerge.visibleRecords(merged);
+      visible.sort((a, b) =>
           (b['date'] as String).compareTo(a['date'] as String)); // 日期倒序
 
       await localBox.put('list', merged);
-      return merged;
+      return visible;
     }
 
-    return localList;
+    return SyncMerge.visibleRecords(localList);
   }
 
   static Future<void> saveDiary({
@@ -771,7 +860,7 @@ class WebdavService {
         if (parts.length == 2) {
           final bytes = base64Decode(parts[1]);
           final ext = imageUrl.contains('image/png') ? 'png' : 'jpg';
-          final fileName = 'img_${finalObjectId}.$ext';
+          final fileName = 'img_$finalObjectId.$ext';
           final uploaded = await _uploadImageBytes(fileName, bytes);
           if (uploaded != null) {
             finalImageUrl = fileName;
@@ -832,7 +921,13 @@ class WebdavService {
       }
     }
 
-    list.removeWhere((item) => item['objectId'] == objectId);
+    final tombstone = SyncMerge.tombstoneFor(objectId);
+    final index = list.indexWhere((item) => item['objectId'] == objectId);
+    if (index != -1) {
+      list[index] = tombstone;
+    } else {
+      list.add(tombstone);
+    }
     await box.put('list', list);
     await _safeUploadWithRetry('diaries.json', list);
   }
@@ -851,9 +946,9 @@ class WebdavService {
 
       final merged = _mergeLists(localList, remoteList);
       await localBox.put('list', merged);
-      return merged;
+      return SyncMerge.visibleRecords(merged);
     }
-    return localList;
+    return SyncMerge.visibleRecords(localList);
   }
 
   static Future<void> saveWish({
@@ -904,7 +999,13 @@ class WebdavService {
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
         rawList.map((e) => Map<String, dynamic>.from(e as Map)));
-    list.removeWhere((item) => item['objectId'] == objectId);
+    final tombstone = SyncMerge.tombstoneFor(objectId);
+    final index = list.indexWhere((item) => item['objectId'] == objectId);
+    if (index != -1) {
+      list[index] = tombstone;
+    } else {
+      list.add(tombstone);
+    }
     await box.put('list', list);
     await _safeUploadWithRetry('wishes.json', list);
   }
@@ -922,12 +1023,13 @@ class WebdavService {
           remoteRaw.map((e) => Map<String, dynamic>.from(e as Map)));
 
       final merged = _mergeLists(localList, remoteList);
-      merged
+      final visible = SyncMerge.visibleRecords(merged);
+      visible
           .sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
       await localBox.put('list', merged);
-      return merged;
+      return visible;
     }
-    return localList;
+    return SyncMerge.visibleRecords(localList);
   }
 
   static Future<void> saveAnniversary({
@@ -963,33 +1065,48 @@ class WebdavService {
   // --- 生理期同步 ---
   static Future<List<String>> fetchPeriodLogs() async {
     final localBox = Hive.box('period_logs');
-    final localList = List<String>.from(localBox.get('list') ?? []);
+    final localRecords = _loadPeriodRecords(localBox);
 
     final remoteRaw = await _downloadFile('period_logs.json');
     if (remoteRaw != null && remoteRaw is List) {
-      final remoteList = List<String>.from(remoteRaw);
+      final remoteRecords = _periodRecordsFromRaw(remoteRaw);
+      final merged = _mergeLists(localRecords, remoteRecords);
 
       // 合并取并集
-      final merged = Set<String>.from(localList)..addAll(remoteList);
-      final mergedList = merged.toList();
-
-      await localBox.put('list', mergedList);
-      return mergedList;
+      await _storePeriodRecords(localBox, merged);
+      return _periodDatesFromRecords(merged);
     }
-    return localList;
+    return _periodDatesFromRecords(localRecords);
   }
 
   static Future<void> togglePeriodLog(String dateString, bool isPeriod) async {
     final box = Hive.box('period_logs');
-    final List<String> list = List<String>.from(box.get('list') ?? []);
+    final list = _loadPeriodRecords(box);
+    final timestamp = DateTime.now().toIso8601String();
+    final activeRecord = {
+      'objectId': dateString,
+      'date': dateString,
+      'deleted': false,
+      'updatedAt': timestamp,
+    };
+    final tombstone = {
+      ...SyncMerge.tombstoneFor(dateString, deletedAt: DateTime.now()),
+      'date': dateString,
+    };
+    final record = isPeriod ? activeRecord : tombstone;
+    final index = list.indexWhere((item) => item['objectId'] == dateString);
     if (isPeriod) {
-      if (!list.contains(dateString)) {
-        list.add(dateString);
+      if (index != -1) {
+        list[index] = record;
+      } else {
+        list.add(record);
       }
+    } else if (index != -1) {
+      list[index] = record;
     } else {
-      list.remove(dateString);
+      list.add(record);
     }
-    await box.put('list', list);
+    await _storePeriodRecords(box, list);
     await _safeUploadWithRetry('period_logs.json', list);
   }
 
@@ -1006,13 +1123,14 @@ class WebdavService {
           remoteRaw.map((e) => Map<String, dynamic>.from(e as Map)));
 
       final merged = _mergeLists(localList, remoteList);
-      merged
+      final visible = SyncMerge.visibleRecords(merged);
+      visible
           .sort((a, b) => (b['date'] as String).compareTo(a['date'] as String));
 
       await localBox.put('list', merged);
-      return merged;
+      return visible;
     }
-    return localList;
+    return SyncMerge.visibleRecords(localList);
   }
 
   static Future<void> saveIntimacyLog({
@@ -1052,5 +1170,54 @@ class WebdavService {
     }
     await box.put('list', list);
     await _safeUploadWithRetry('intimacy_logs.json', list);
+  }
+
+  // --- 瀹氫綅鍚屾 ---
+  static Future<void> updateLocation(double latitude, double longitude) async {
+    final user = await getCurrentUser();
+    if (user == null) return;
+
+    final timestamp = DateTime.now().toIso8601String();
+    user['latitude'] = latitude;
+    user['longitude'] = longitude;
+    user['location_updated_at'] = timestamp;
+    await Hive.box('user').put(_keyCurrentUser, user);
+
+    final locationRecord = _locationRecordForUser(
+      user,
+      latitude,
+      longitude,
+      timestamp,
+    );
+    final merged = _mergeLists(
+      _loadCachedLocations(),
+      [locationRecord],
+    );
+    final latest = _mergeLists(
+      merged,
+      await _loadMergedLocations(),
+    );
+
+    await Hive.box('user').put(_keyLocations, latest);
+    await _safeUploadWithRetry('locations.json', latest);
+  }
+
+  static Future<Map<String, dynamic>?> fetchPartnerLocation(
+      String partnerId) async {
+    final locations = await _loadMergedLocations();
+    final visible = SyncMerge.visibleRecords(locations);
+    return visible.cast<Map<String, dynamic>?>().firstWhere(
+          (item) => item?['objectId']?.toString() == partnerId,
+          orElse: () => null,
+        );
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchAllLocations() async {
+    final locations = SyncMerge.visibleRecords(await _loadMergedLocations())
+        .where((item) => item['latitude'] != null && item['longitude'] != null)
+        .toList();
+    locations.sort((a, b) => (b['location_updated_at']?.toString() ?? '')
+        .compareTo(a['location_updated_at']?.toString() ?? ''));
+    return locations;
   }
 }

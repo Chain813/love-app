@@ -719,7 +719,7 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
       );
     } else if (_selectedType == DbType.webdav) {
       await DbConfigService.saveWebdavConfig(
-        url: 'https://dav.jianguoyun.com/dav/',
+        url: DbConfigService.defaultWebdavUrl,
         user: _webdavUserController.text.trim(),
         password: _webdavPwdController.text.trim(),
       );
@@ -900,7 +900,7 @@ class _DatabaseConfigBottomSheetState extends State<DatabaseConfigBottomSheet> {
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      '坚果云 WebDAV · dav.jianguoyun.com',
+                      '坚果云 WebDAV · Cloudflare 代理',
                       style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
                     ),
                   ),
