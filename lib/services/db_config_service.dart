@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:hive/hive.dart';
 import '../config/keys.dart';
 
@@ -29,6 +32,18 @@ class DbConfigService {
   static const String _keyWebdavUrl = 'webdav_url';
   static const String _keyWebdavUser = 'webdav_user';
   static const String _keyWebdavPwd = 'webdav_pwd';
+  static const List<String> _criticalStartupBoxNames = [
+    'user',
+    'settings',
+  ];
+  static const List<String> _deferredStartupBoxNames = [
+    'diaries',
+    'wishes',
+    'anniversaries',
+    'period_logs',
+    'intimacy_logs',
+    'daily_quote_cache',
+  ];
 
   static late Box _box;
 
@@ -38,20 +53,38 @@ class DbConfigService {
       return deleted > 20 && (deleted / total) > 0.3;
     }
 
-    _box = await Hive.openBox(_boxName, compactionStrategy: compactionStrategy);
+    _box = await _openBox(_boxName, compactionStrategy);
     await _migrateLegacyWebdavEndpoint();
 
-    // 预打开应用常用的数据 Box 提升后续读写性能（减少磁盘 I/O 阻塞时间）
-    await Future.wait([
-      Hive.openBox('user', compactionStrategy: compactionStrategy),
-      Hive.openBox('diaries', compactionStrategy: compactionStrategy),
-      Hive.openBox('wishes', compactionStrategy: compactionStrategy),
-      Hive.openBox('anniversaries', compactionStrategy: compactionStrategy),
-      Hive.openBox('period_logs', compactionStrategy: compactionStrategy),
-      Hive.openBox('intimacy_logs', compactionStrategy: compactionStrategy),
-      Hive.openBox('settings', compactionStrategy: compactionStrategy),
-      Hive.openBox('daily_quote_cache', compactionStrategy: compactionStrategy),
-    ]);
+    for (final boxName in _criticalStartupBoxNames) {
+      await _openBox(boxName, compactionStrategy);
+    }
+
+    if (kIsWeb) {
+      unawaited(
+          _openDeferredStartupBoxes(compactionStrategy).catchError((_) {}));
+    } else {
+      await _openDeferredStartupBoxes(compactionStrategy);
+    }
+  }
+
+  static Future<void> _openDeferredStartupBoxes(
+    bool Function(int total, int deleted) compactionStrategy,
+  ) async {
+    // Web IndexedDB can stall when many object stores are opened during first paint.
+    for (final boxName in _deferredStartupBoxNames) {
+      await _openBox(boxName, compactionStrategy);
+    }
+  }
+
+  static Future<Box> _openBox(
+    String boxName,
+    bool Function(int total, int deleted) compactionStrategy,
+  ) async {
+    if (Hive.isBoxOpen(boxName)) {
+      return Hive.box(boxName);
+    }
+    return Hive.openBox(boxName, compactionStrategy: compactionStrategy);
   }
 
   static Future<void> _migrateLegacyWebdavEndpoint() async {

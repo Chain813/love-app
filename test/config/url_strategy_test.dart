@@ -17,7 +17,8 @@ void main() {
     final ensureBinding = source.indexOf(
       'WidgetsFlutterBinding.ensureInitialized()',
     );
-    final configureStrategy = source.indexOf('configureGithubPagesUrlStrategy()');
+    final configureStrategy =
+        source.indexOf('configureGithubPagesUrlStrategy()');
     final runApp = source.indexOf('runApp(');
 
     expect(ensureBinding, isNonNegative);

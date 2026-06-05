@@ -28,6 +28,18 @@ void main() {
     expect(Hive.isBoxOpen('daily_quote_cache'), isTrue);
   });
 
+  test('opens startup boxes sequentially for browser IndexedDB stability', () {
+    final source =
+        File('lib/services/db_config_service.dart').readAsStringSync();
+
+    expect(source, contains('_criticalStartupBoxNames'));
+    expect(source, contains('_deferredStartupBoxNames'));
+    expect(source, contains('kIsWeb'));
+    expect(source, contains('unawaited('));
+    expect(source, contains('_openDeferredStartupBoxes'));
+    expect(source, isNot(contains('Future.wait([')));
+  });
+
   test('uses the Cloudflare WebDAV proxy as the default endpoint', () async {
     await LeanCloudService.initialize();
 
