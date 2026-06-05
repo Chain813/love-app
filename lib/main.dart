@@ -6,8 +6,8 @@ import 'config/url_strategy.dart';
 import 'services/leancloud_service.dart';
 
 void main() async {
-  configureGithubPagesUrlStrategy();
   WidgetsFlutterBinding.ensureInitialized();
+  configureGithubPagesUrlStrategy();
   await initializeDateFormatting('zh_CN');
   await Hive.initFlutter();
   await LeanCloudService.initialize();
