@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
-import '../config/constants.dart';
+import '../core/config/constants.dart';
 
 /// DeepSeek LLM 服务 — 每日金句生成 + Hive 日缓存 + 离线回退
 class LlmService {

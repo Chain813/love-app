@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:hive/hive.dart';
-import '../config/keys.dart';
+import '../core/config/keys.dart';
 
 enum DbType {
   leancloud,
@@ -43,6 +43,7 @@ class DbConfigService {
     'period_logs',
     'intimacy_logs',
     'daily_quote_cache',
+    'gifts',
   ];
 
   static late Box _box;

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'config/theme.dart';
-import 'config/router.dart';
-import 'providers/theme_provider.dart';
-import 'providers/auth_provider.dart';
-import 'providers/location_provider.dart';
+import './core/config/theme.dart';
+import './core/di/service_locator.dart';
+import './core/router/router.dart';
+import './features/settings/providers/theme_provider.dart';
+import './features/auth/providers/auth_provider.dart';
+import './features/location/providers/location_provider.dart';
 
 class ChongMiApp extends StatefulWidget {
   const ChongMiApp({super.key});
@@ -23,9 +24,9 @@ class _ChongMiAppState extends State<ChongMiApp> {
   @override
   void initState() {
     super.initState();
-    _themeProvider = ThemeProvider();
-    _authProvider = AuthProvider()..checkLoginStatus();
-    _locationProvider = LocationProvider();
+    _themeProvider = sl<ThemeProvider>();
+    _authProvider = sl<AuthProvider>()..checkLoginStatus();
+    _locationProvider = sl<LocationProvider>()..checkPermission();
     _router = createRouter(_authProvider);
   }
 

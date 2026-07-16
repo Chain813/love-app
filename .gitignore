@@ -61,6 +61,7 @@ app.*.map.json
 
 # Local configurations and credentials
 lib/config/keys.dart
+lib/core/config/keys.dart
 
 # Claude/AI settings
 .claude/

@@ -2,8 +2,9 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
 import 'db_config_service.dart';
-import '../utils/sync_merge.dart';
+import '../core/utils/sync_merge.dart';
 
 class _InvalidPairDataException implements Exception {
   const _InvalidPairDataException(this.message);
@@ -22,6 +23,7 @@ class WebdavService {
   static const String _keyRole = 'webdav_role';
   static const String _keyDeviceId = 'webdav_device_id';
   static const String _keyLocations = 'webdav_locations';
+  static const String _keyLocationHistory = 'webdav_location_history';
   static const String _keyPeriodRecords = 'period_records';
 
   static String get _webdavUrl {
@@ -1200,6 +1202,13 @@ class WebdavService {
 
     await Hive.box('user').put(_keyLocations, latest);
     await _safeUploadWithRetry('locations.json', latest);
+
+    // 同步更新历史轨迹记录
+    try {
+      await updateLocationHistory(latitude, longitude);
+    } catch (e) {
+      print('更新历史轨迹失败: $e');
+    }
   }
 
   static Future<Map<String, dynamic>?> fetchPartnerLocation(
@@ -1219,5 +1228,100 @@ class WebdavService {
     locations.sort((a, b) => (b['location_updated_at']?.toString() ?? '')
         .compareTo(a['location_updated_at']?.toString() ?? ''));
     return locations;
+  }
+
+  static List<Map<String, dynamic>> _loadCachedLocationHistory() {
+    return _recordsFromRawList(Hive.box('user').get(_keyLocationHistory));
+  }
+
+  static Future<List<Map<String, dynamic>>> _loadMergedLocationHistory() async {
+    final localList = _loadCachedLocationHistory();
+    final remoteRaw = await _downloadFile('location_history.json');
+    if (remoteRaw is List) {
+      final remoteList = _recordsFromRawList(remoteRaw);
+      final merged = _mergeLists(localList, remoteList);
+      await Hive.box('user').put(_keyLocationHistory, merged);
+      return merged;
+    }
+    return localList;
+  }
+
+  static Future<void> updateLocationHistory(double latitude, double longitude) async {
+    final user = await getCurrentUser();
+    if (user == null) return;
+
+    final userId = user['objectId']?.toString() ?? _username;
+    final timestamp = DateTime.now().toIso8601String();
+
+    final historyList = await _loadMergedLocationHistory();
+
+    final myHistory = historyList
+        .where((item) => item['userId'] == userId && item['latitude'] != null && item['longitude'] != null)
+        .toList();
+    
+    myHistory.sort((a, b) => (a['start_time']?.toString() ?? '')
+        .compareTo(b['start_time']?.toString() ?? ''));
+
+    Map<String, dynamic>? lastRecord = myHistory.isNotEmpty ? myHistory.last : null;
+
+    bool isWithin50m = false;
+    if (lastRecord != null) {
+      final lastLat = lastRecord['latitude'] as double?;
+      final lastLng = lastRecord['longitude'] as double?;
+      if (lastLat != null && lastLng != null) {
+        final distance = Geolocator.distanceBetween(lastLat, lastLng, latitude, longitude);
+        if (distance < 50) {
+          isWithin50m = true;
+        }
+      }
+    }
+
+    if (isWithin50m && lastRecord != null) {
+      final updatedRecord = Map<String, dynamic>.from(lastRecord);
+      updatedRecord['end_time'] = timestamp;
+      updatedRecord['updatedAt'] = timestamp;
+
+      final idx = historyList.indexWhere((item) => item['objectId'] == lastRecord['objectId']);
+      if (idx != -1) {
+        historyList[idx] = updatedRecord;
+      }
+    } else {
+      final newRecordId = '${userId}_${DateTime.now().millisecondsSinceEpoch}';
+      final newRecord = {
+        'objectId': newRecordId,
+        'userId': userId,
+        'latitude': latitude,
+        'longitude': longitude,
+        'start_time': timestamp,
+        'end_time': timestamp,
+        'updatedAt': timestamp,
+      };
+      historyList.add(newRecord);
+    }
+
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final filteredHistory = historyList.where((item) {
+      final itemTimeStr = item['end_time']?.toString() ?? item['updatedAt']?.toString() ?? '';
+      final itemTime = DateTime.tryParse(itemTimeStr);
+      if (itemTime == null) return false;
+      return itemTime.isAfter(sevenDaysAgo);
+    }).toList();
+
+    filteredHistory.sort((a, b) => (a['start_time']?.toString() ?? '')
+        .compareTo(b['start_time']?.toString() ?? ''));
+    final finalizedHistory = filteredHistory.length > 500 
+        ? filteredHistory.sublist(filteredHistory.length - 500)
+        : filteredHistory;
+
+    await Hive.box('user').put(_keyLocationHistory, finalizedHistory);
+    await _safeUploadWithRetry('location_history.json', finalizedHistory);
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchLocationHistory() async {
+    final history = await _loadMergedLocationHistory();
+    final visible = SyncMerge.visibleRecords(history);
+    visible.sort((a, b) => (a['start_time']?.toString() ?? '')
+        .compareTo(b['start_time']?.toString() ?? ''));
+    return visible;
   }
 }

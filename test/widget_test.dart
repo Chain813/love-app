@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:chongmi/config/theme.dart';
-import 'package:chongmi/providers/theme_provider.dart';
-import 'package:chongmi/providers/auth_provider.dart';
-import 'package:chongmi/screens/auth/login_screen.dart';
+import 'package:chongmi/core/config/theme.dart';
+import 'package:chongmi/features/settings/providers/theme_provider.dart';
+import 'package:chongmi/features/auth/providers/auth_provider.dart';
+import 'package:chongmi/features/auth/screens/login_screen.dart';
 
 void main() {
   setUpAll(() async {

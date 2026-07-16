@@ -1,0 +1,168 @@
+import 'package:go_router/go_router.dart';
+import '../../features/auth/providers/auth_provider.dart';
+import './routes.dart';
+import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/pair_screen.dart';
+import '../../features/auth/screens/webdav_role_screen.dart';
+import '../../features/home/screens/home_screen.dart';
+import '../../features/diary/screens/diary_list_screen.dart';
+import '../../features/diary/screens/diary_edit_screen.dart';
+import '../../features/photo/screens/photo_wall_screen.dart';
+import '../../features/anniversary/screens/anniversary_screen.dart';
+import '../../features/wish/screens/wish_screen.dart';
+import '../../features/gift/screens/gift_screen.dart';
+import '../../features/chat/screens/chat_screen.dart';
+import '../../features/game/screens/game_select_screen.dart';
+import '../../features/game/screens/game_room_screen.dart';
+import '../../features/game/screens/wheel_game_screen.dart';
+import '../../features/game/screens/scratch_game_screen.dart';
+import '../../features/period/screens/period_intimacy_screen.dart';
+import '../../features/settings/screens/settings_screen.dart';
+import '../../features/location/screens/couple_location_screen.dart';
+import '../../features/admin/screens/developer_admin_screen.dart';
+
+/// 全局路由配置
+/// 支持 Web 端浏览器前进/后退、URL 深链接
+GoRouter createRouter(AuthProvider auth) => GoRouter(
+      initialLocation: AppRoutes.login,
+      debugLogDiagnostics: false,
+      refreshListenable: auth,
+      redirect: (context, state) {
+        final isLoggedIn = auth.isLoggedIn;
+        final isPaired = auth.isPaired;
+        final isLoading = auth.isLoading;
+        final path = state.matchedLocation;
+
+        if (path == AppRoutes.admin) {
+          return AppRoutes.devAdmin;
+        }
+
+        // 管理员页面仅已登录用户可访问
+        if (path == AppRoutes.devAdmin) {
+          if (!isLoggedIn) return AppRoutes.login;
+          return null;
+        }
+
+        // 加载中不跳转
+        if (isLoading) return null;
+
+        // 未登录 → 去登录页（已在登录页则不跳转）
+        if (!isLoggedIn && path != AppRoutes.login) {
+          return AppRoutes.login;
+        }
+
+        if (isLoggedIn && auth.isWebdav) {
+          if (auth.needsWebdavRole && path != AppRoutes.webdavRole) {
+            return AppRoutes.webdavRole;
+          }
+          if (!auth.needsWebdavRole && path == AppRoutes.webdavRole) {
+            return AppRoutes.home;
+          }
+          if (auth.needsWebdavSetup && path != AppRoutes.home) {
+            return AppRoutes.home;
+          }
+          if (path == AppRoutes.login || path == AppRoutes.pair) {
+            return AppRoutes.home;
+          }
+          return null;
+        }
+
+        // 已登录未配对 → 去配对页
+        if (isLoggedIn && !isPaired && path != AppRoutes.pair) {
+          return AppRoutes.pair;
+        }
+
+        // 已登录已配对 → 如果在登录/配对页则跳首页
+        if (isLoggedIn &&
+            isPaired &&
+            (path == AppRoutes.login || path == AppRoutes.pair)) {
+          return AppRoutes.home;
+        }
+
+        return null;
+      },
+      routes: [
+        GoRoute(
+          path: AppRoutes.login,
+          builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.pair,
+          builder: (context, state) => const PairScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.webdavRole,
+          builder: (context, state) => const WebdavRoleScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.home,
+          builder: (context, state) => const HomeScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.diary,
+          builder: (context, state) => const DiaryListScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.diaryEdit,
+          builder: (context, state) => const DiaryEditScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.photo,
+          builder: (context, state) => const PhotoWallScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.anniversary,
+          builder: (context, state) => const AnniversaryScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.wish,
+          builder: (context, state) => const WishScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.gift,
+          builder: (context, state) => const GiftScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.chat,
+          builder: (context, state) => const ChatScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.gameSelect,
+          builder: (context, state) => const GameSelectScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.gameRoom,
+          builder: (context, state) {
+            final gameType = state.uri.queryParameters['type'] ?? 'quiz';
+            switch (gameType) {
+              case 'wheel':
+                return const WheelGameScreen();
+              case 'scratch':
+                return const ScratchGameScreen();
+              default:
+                return GameRoomScreen(gameType: gameType);
+            }
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.period,
+          builder: (context, state) => const PeriodIntimacyScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.location,
+          builder: (context, state) => const CoupleLocationScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.settings,
+          builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.admin,
+          redirect: (context, state) => AppRoutes.devAdmin,
+        ),
+        GoRoute(
+          path: AppRoutes.devAdmin,
+          builder: (context, state) => const DeveloperAdminScreen(),
+        ),
+      ],
+    );

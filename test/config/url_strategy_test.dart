@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
-import 'package:chongmi/config/url_strategy.dart';
+import 'package:chongmi/core/config/url_strategy.dart';
 
 void main() {
   test('uses hash URL strategy for GitHub Pages routes', () {

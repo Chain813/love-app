@@ -22,7 +22,7 @@ jobs:
 
       # Create keys.dart from template for CI build
       - name: Create keys.dart from template
-        run: cp lib/config/keys.template.dart lib/config/keys.dart
+        run: cp lib/core/config/keys.template.dart lib/core/config/keys.dart
 
       - name: Install dependencies
         run: flutter pub get

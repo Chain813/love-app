@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
-import '../config/constants.dart';
+import '../core/config/constants.dart';
 import 'db_config_service.dart';
 import 'supabase_service.dart';
 import 'local_db_service.dart';
@@ -584,6 +584,15 @@ class LeanCloudService {
       case DbType.local:
         return LocalDbService.fetchAllLocations();
       case DbType.leancloud:
+      default:
+        return [];
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchLocationHistory() async {
+    switch (DbConfigService.currentDbType) {
+      case DbType.webdav:
+        return WebdavService.fetchLocationHistory();
       default:
         return [];
     }
