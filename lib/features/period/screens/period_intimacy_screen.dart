@@ -4,6 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:hive/hive.dart';
 import 'package:animate_do/animate_do.dart';
 import '../../../services/leancloud_service.dart';
+import '../../../services/llm_service.dart';
 
 /// 生理期与亲密记 (手势/密码防窥锁)
 class PeriodIntimacyScreen extends StatefulWidget {
@@ -180,6 +181,75 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
     await LeanCloudService.toggleIntimacyLog(dateStr, !hasIntimacy);
   }
 
+  /// AI 生理期洞察分析
+  Future<void> _showAIPeriodInsight() async {
+    // 显示加载对话框
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('AI 正在分析中...', style: TextStyle(fontSize: 14)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final insight = await LlmService.getPeriodInsight(
+        periodDates: _periodDays.toList()..sort(),
+        userName: null,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // 关闭加载弹窗
+
+      // 显示分析结果
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.psychology_rounded, color: Color(0xFFFF6B9D)),
+              SizedBox(width: 8),
+              Text('AI 周期洞察', style: TextStyle(fontSize: 18)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Text(
+              insight,
+              style: const TextStyle(fontSize: 15, height: 1.6),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('知道了'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // 关闭加载弹窗
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('AI 分析失败，请稍后重试'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_isUnlocked) {
@@ -197,6 +267,11 @@ class _PeriodIntimacyScreenState extends State<PeriodIntimacyScreen> {
         title: const Text('生理与亲密助手 🌸'),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.psychology_rounded),
+            onPressed: _showAIPeriodInsight,
+            tooltip: 'AI 周期分析',
+          ),
           IconButton(
             icon: Icon(_savedPin != null ? Icons.lock_open_rounded : Icons.lock_outline_rounded),
             onPressed: () {

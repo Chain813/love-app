@@ -168,4 +168,125 @@ class LlmService {
   static int _todayHash() {
     return _todayStr().hashCode.abs();
   }
+
+  /// 生理期 AI 洞察 — 基于历史记录生成预测和建议
+  static Future<String> getPeriodInsight({
+    required List<String> periodDates,
+    String? userName,
+    int? cycleLength,
+  }) async {
+    final apiKey = AppConstants.deepSeekApiKey;
+    if (apiKey.isEmpty || apiKey.startsWith('YOUR_')) {
+      return _fallbackPeriodInsight(periodDates);
+    }
+
+    final datesStr = periodDates.isNotEmpty
+        ? periodDates
+            .map((d) => d)
+            .join(', ')
+        : '暂无记录';
+
+    final cycleInfo = cycleLength != null && cycleLength > 0
+        ? '平均周期约 $cycleLength 天'
+        : '周期未知';
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          'model': _model,
+          'messages': [
+            {
+              'role': 'system',
+              'content': '你是一个贴心的女性健康助手，为情侣应用的生理期功能提供温暖、科学的分析和建议。'
+                  '用中文回复，语气温柔体贴。控制在150字以内。'
+            },
+            {
+              'role': 'user',
+              'content': '请根据以下生理期记录，分析周期规律、预测下次时间，并给出关怀建议：\n'
+                  '${userName != null ? '用户：$userName\n' : ''}'
+                  '历史记录日期：$datesStr\n'
+                  '$cycleInfo\n'
+                  '请给出：1) 周期是否规律 2) 下次预测 3) 贴心小建议'
+            },
+          ],
+          'temperature': 0.7,
+          'max_tokens': 300,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final content = data['choices']?[0]?['message']?['content'] as String?;
+        return content ?? _fallbackPeriodInsight(periodDates);
+      }
+    } catch (_) {}
+
+    return _fallbackPeriodInsight(periodDates);
+  }
+
+  /// 离线回退 — 基于规则的分析
+  static String _fallbackPeriodInsight(List<String> periodDates) {
+    if (periodDates.isEmpty) {
+      return '🌸 还没有生理期记录哦～\n\n从"互动 → 生理助手"日历标记生理期开始日期，连续记录2-3个月后，AI 就能帮你预测周期啦！';
+    }
+
+    final sorted = periodDates.map((d) => DateTime.tryParse(d))
+        .whereType<DateTime>()
+        .toList()
+      ..sort();
+
+    if (sorted.length < 2) {
+      return '📝 目前只有 ${sorted.length} 条记录，再多记录几条就能看到规律啦！\n\n每次生理期开始时，记得在日历上标记一下哦～';
+    }
+
+    // 计算平均周期
+    int totalDays = 0;
+    int cycles = 0;
+    for (int i = 1; i < sorted.length; i++) {
+      final diff = sorted[i].difference(sorted[i - 1]).inDays;
+      if (diff >= 20 && diff <= 45) {
+        totalDays += diff;
+        cycles++;
+      }
+    }
+
+    if (cycles == 0) {
+      return '📊 从已有 ${sorted.length} 条记录来看，暂时还看不出明显规律。\n\n建议继续记录，一般需要3个月以上的数据才能准确分析哦～';
+    }
+
+    final avgCycle = (totalDays / cycles).round();
+    final lastDate = sorted.last;
+    final nextPredicted = lastDate.add(Duration(days: avgCycle));
+    final today = DateTime.now();
+    final daysUntil = nextPredicted.difference(today).inDays;
+
+    final regularity = cycles >= 2
+        ? '比较规律'
+        : '还需更多数据验证';
+
+    final dateStr =
+        '${nextPredicted.month}月${nextPredicted.day}日';
+
+    String advice;
+    if (daysUntil < 0) {
+      advice = '可能已经来啦，记得标记哦～多喝温水，注意保暖 🌸';
+    } else if (daysUntil <= 3) {
+      advice = '就快到了！提前准备好卫生用品，注意休息，少喝冷饮 🍵';
+    } else if (daysUntil <= 7) {
+      advice = '还有一周左右，保持好心情，适度运动有帮助哦 🧘';
+    } else {
+      advice = '一切正常，保持健康作息，记得提前准备好所需物品 💪';
+    }
+
+    return '📊 基于 ${sorted.length} 条记录分析：\n\n'
+        '• 平均周期: $avgCycle 天 ($regularity)\n'
+        '• 最近一次: ${sorted.last.month}月${sorted.last.day}日\n'
+        '• 预测下次: $dateStr (约${daysUntil > 0 ? daysUntil : 0}天后)\n\n'
+        '💡 $advice';
+  }
 }
