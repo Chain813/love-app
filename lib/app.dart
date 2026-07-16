@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import './core/config/theme.dart';
@@ -7,6 +8,7 @@ import './core/router/router.dart';
 import './features/settings/providers/theme_provider.dart';
 import './features/auth/providers/auth_provider.dart';
 import './features/location/providers/location_provider.dart';
+import './l10n/app_localizations.dart';
 
 class ChongMiApp extends StatefulWidget {
   const ChongMiApp({super.key});
@@ -53,6 +55,14 @@ class _ChongMiAppState extends State<ChongMiApp> {
             title: '虫米',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.getTheme(themeProvider.currentTheme),
+            locale: const Locale('zh'),
+            supportedLocales: const [Locale('zh'), Locale('en')],
+            localizationsDelegates: [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             routerConfig: _router,
           );
         },

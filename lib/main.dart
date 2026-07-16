@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'app.dart';
@@ -13,5 +14,11 @@ void main() async {
   await Hive.initFlutter();
   await LeanCloudService.initialize();
   await initServiceLocator();
-  runApp(const ChongMiApp());
+  runApp(
+    ScreenUtilInit(
+      designSize: const Size(375, 812),
+      minTextAdapt: true,
+      builder: (context, child) => const ChongMiApp(),
+    ),
+  );
 }
