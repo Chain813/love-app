@@ -1,7 +1,15 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:hive/hive.dart';
+import 'db_config_service.dart';
+import 'supabase_service.dart';
+import 'webdav_service.dart';
+import 'local_db_service.dart';
+import '../features/diary/models/diary.dart';
 import 'dart:math';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
+import 'sync_queue_manager.dart';
 import '../core/config/constants.dart';
 import 'db_config_service.dart';
 import 'supabase_service.dart';
@@ -256,17 +264,17 @@ class LeanCloudService {
   /// ----------------------------------------
   /// 日记模块云同步
   /// ----------------------------------------
-  static Future<List<Map<String, dynamic>>> fetchDiaries() async {
+  static Future<List<Diary>> fetchDiaries({int limit = 20, int offset = 0}) async {
     switch (DbConfigService.currentDbType) {
       case DbType.supabase:
-        return SupabaseService.fetchDiaries();
+        return SupabaseService.fetchDiaries(limit: limit, offset: offset);
       case DbType.webdav:
-        return WebdavService.fetchDiaries();
+        return WebdavService.fetchDiaries(limit: limit, offset: offset);
       case DbType.local:
-        return LocalDbService.fetchDiaries();
+        return LocalDbService.fetchDiaries(limit: limit, offset: offset);
       case DbType.leancloud:
       default:
-        return _LeanCloudRealImpl.fetchDiaries();
+        return _LeanCloudRealImpl.fetchDiaries(limit: limit, offset: offset);
     }
   }
 
@@ -1036,24 +1044,25 @@ class _LeanCloudRealImpl {
   }
 
   // --- 日记同步 ---
-  static Future<List<Map<String, dynamic>>> fetchDiaries() async {
+  static Future<List<Diary>> fetchDiaries({int limit = 20, int offset = 0}) async {
     try {
       final user = await getCurrentUser();
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
       final url = Uri.parse(
-          '$_baseUrl/1.1/classes/Diary?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&order=-date');
+          '$_baseUrl/1.1/classes/Diary?where=${Uri.encodeComponent('{"couple_id":"$coupleId"}')}&order=-date&limit=$limit&skip=$offset');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List results = data['results'] ?? [];
+        final List results = jsonDecode(response.body)['results'];
         final list = List<Map<String, dynamic>>.from(results);
 
         final box = Hive.box('diaries');
-        await box.put('list', list);
-        return list;
+        if (offset == 0) {
+          await box.put('list', list);
+        }
+        return list.map((e) => Diary.fromJson(e)).toList();
       }
     } catch (e) {
       print("LC fetchDiaries error: $e");
@@ -1062,8 +1071,9 @@ class _LeanCloudRealImpl {
     final box = Hive.box('diaries');
     final cached = box.get('list');
     if (cached != null) {
-      return List<Map<String, dynamic>>.from(
+      final cachedList = List<Map<String, dynamic>>.from(
           (cached as List).map((e) => Map<String, dynamic>.from(e as Map)));
+      return cachedList.skip(offset).take(limit).map((e) => Diary.fromJson(e)).toList();
     }
     return [];
   }
@@ -1107,6 +1117,7 @@ class _LeanCloudRealImpl {
       }
     } catch (e) {
       print("LC saveDiary error: $e");
+      SyncQueueManager().enqueueTask('saveDiary', body);
     }
 
     final box = Hive.box('diaries');
@@ -1129,6 +1140,7 @@ class _LeanCloudRealImpl {
       await http.delete(url, headers: _headers);
     } catch (e) {
       print("LC deleteDiary error: $e");
+      SyncQueueManager().enqueueTask('deleteDiary', {'objectId': objectId});
     }
 
     final box = Hive.box('diaries');

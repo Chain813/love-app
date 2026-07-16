@@ -2,9 +2,12 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
+import 'sync_queue_manager.dart';
 import 'package:geolocator/geolocator.dart';
 import 'db_config_service.dart';
 import '../core/utils/sync_merge.dart';
+import 'webdav/webdav_client.dart';
+import '../features/diary/models/diary.dart';
 
 class _InvalidPairDataException implements Exception {
   const _InvalidPairDataException(this.message);
@@ -25,55 +28,6 @@ class WebdavService {
   static const String _keyLocations = 'webdav_locations';
   static const String _keyLocationHistory = 'webdav_location_history';
   static const String _keyPeriodRecords = 'period_records';
-
-  static String get _webdavUrl {
-    var url = DbConfigService.webdavUrl.trim();
-    if (!url.endsWith('/')) {
-      url += '/';
-    }
-    return url;
-  }
-
-  static String get _username => DbConfigService.webdavUser.trim();
-  static String get _password => DbConfigService.webdavPassword.trim();
-
-  static Map<String, String> get _headers {
-    return _buildHeaders(_username, _password);
-  }
-
-  static Uri _syncUri(String relativePath) {
-    return Uri.parse(_webdavUrl).resolve(relativePath);
-  }
-
-  static Map<String, String> _buildHeaders(String username, String password) {
-    final credentials = base64Encode(utf8.encode('$username:$password'));
-    return {
-      'Authorization': 'Basic $credentials',
-      'Content-Type': 'application/json',
-    };
-  }
-
-  static String _connectionHelp(Object error, {int? statusCode}) {
-    final checks = <String>[
-      '无法连接坚果云 WebDAV，已自动检查：',
-      if (statusCode != null) '1. 服务器返回状态码：$statusCode',
-      if (statusCode == null) '1. 未收到服务器有效响应：$error',
-      '2. 请确认网络可以访问 ${DbConfigService.defaultWebdavUrl}',
-      '3. 请确认账号填写的是坚果云登录邮箱。',
-      '4. 请确认密码是“第三方应用管理”里生成的应用授权密码，不是坚果云登录密码。',
-      '5. 如果开启了代理、VPN 或公司网络限制，请切换网络后重试。',
-    ];
-
-    if (statusCode == 401 || statusCode == 403) {
-      checks.add('判断：账号或应用授权密码不正确，或该账号没有 WebDAV 权限。');
-    } else if (statusCode == 404) {
-      checks.add('判断：WebDAV 地址不正确，请使用 ${DbConfigService.defaultWebdavUrl}。');
-    } else if (statusCode != null && statusCode >= 500) {
-      checks.add('判断：坚果云服务端暂时不可用，请稍后重试。');
-    }
-
-    return checks.join('\n');
-  }
 
   static Future<String> _getDeviceId() async {
     final box = Hive.box('user');
@@ -151,7 +105,7 @@ class WebdavService {
     Map<String, dynamic>? relation,
   ) async {
     final box = Hive.box('user');
-    final username = (user['username'] as String?) ?? _username;
+    final username = (user['username'] as String?) ?? WebdavClient.username;
     if (relation == null) {
       await box.delete(_keyRelation);
       await box.delete(_keyRole);
@@ -185,7 +139,7 @@ class WebdavService {
     relation[roleDeviceKey] = deviceId;
     relation['updatedAt'] = DateTime.now().toIso8601String();
     if (shouldUploadClaim) {
-      await _safeUploadWithRetry('couple_relation.json', relation);
+      await WebdavClient.safeUploadWithRetry('couple_relation.json', relation);
     }
     await box.put(_keyRole, role);
     await box.put(_keyRelation, relation);
@@ -202,8 +156,8 @@ class WebdavService {
         throw Exception('请输入坚果云账号和应用授权密码');
       }
 
-      final webdavUrl = _webdavUrl;
-      final loginHeaders = _buildHeaders(loginUsername, loginPassword);
+      final webdavUrl = WebdavClient.webdavUrl;
+      final loginHeaders = WebdavClient.buildHeaders(loginUsername, loginPassword);
 
       // 验证连接：发送 Propfind 请求到根目录或读取测试
       final client = http.Client();
@@ -213,7 +167,7 @@ class WebdavService {
           ..headers['Depth'] = '0';
         final res = await client.send(req).timeout(const Duration(seconds: 10));
         if (res.statusCode != 207 && res.statusCode != 200) {
-          throw Exception(_connectionHelp(
+          throw Exception(WebdavClient.connectionHelp(
             'WebDAV verification failed',
             statusCode: res.statusCode,
           ));
@@ -222,7 +176,7 @@ class WebdavService {
         if (e is Exception && e.toString().contains('无法连接坚果云 WebDAV')) {
           rethrow;
         }
-        throw Exception(_connectionHelp(e));
+        throw Exception(WebdavClient.connectionHelp(e));
       } finally {
         client.close();
       }
@@ -234,7 +188,7 @@ class WebdavService {
       );
 
       // 初始化同步目录
-      await _createSyncDir();
+      await WebdavClient.createSyncDir();
 
       final box = Hive.box('user');
 
@@ -260,35 +214,6 @@ class WebdavService {
   }
 
   /// 确保 WebDAV 同步文件夹存在
-  static Future<void> _createSyncDir() async {
-    final client = http.Client();
-    try {
-      for (final directory in const [
-        'love_app_sync/',
-        'love_app_sync/images/',
-      ]) {
-        final req = http.Request('MKCOL', _syncUri(directory))
-          ..headers.addAll(_headers);
-        final res = await client.send(req).timeout(const Duration(seconds: 10));
-        // 405 = 目录已存在，201 = 创建成功，均视为正常
-        if (res.statusCode != 201 && res.statusCode != 405) {
-          throw Exception(_connectionHelp(
-            'WebDAV sync directory creation failed',
-            statusCode: res.statusCode,
-          ));
-        }
-      }
-    } catch (e) {
-      if (e is Exception && e.toString().contains('无法连接坚果云 WebDAV')) {
-        rethrow;
-      }
-      throw Exception(_connectionHelp(e));
-    } finally {
-      client.close();
-    }
-  }
-
-  /// 获取当前用户（本地）
   static Future<Map<String, dynamic>?> getCurrentUser() async {
     final box = Hive.box('user');
     final user = box.get(_keyCurrentUser);
@@ -335,7 +260,7 @@ class WebdavService {
       await box.put(
         _keyCurrentUser,
         _pendingUser(
-            user?['username'] as String? ?? _username, 'setup_required'),
+            user?['username'] as String? ?? WebdavClient.username, 'setup_required'),
       );
       return;
     }
@@ -348,7 +273,7 @@ class WebdavService {
     relation['${role}_device_id'] = deviceId;
     relation['updatedAt'] = DateTime.now().toIso8601String();
     final uploaded =
-        await _safeUploadWithRetry('couple_relation.json', relation);
+        await WebdavClient.safeUploadWithRetry('couple_relation.json', relation);
     if (!uploaded) {
       throw Exception('身份绑定失败：无法写入云端配对文件，请检查网络和坚果云 WebDAV 权限。');
     }
@@ -356,7 +281,7 @@ class WebdavService {
     final box = Hive.box('user');
     await box.put(_keyRole, role);
     await _syncCurrentUserPairing(
-      await getCurrentUser() ?? _pendingUser(_username, 'role_required'),
+      await getCurrentUser() ?? _pendingUser(WebdavClient.username, 'role_required'),
       relation,
     );
   }
@@ -398,8 +323,8 @@ class WebdavService {
 
     try {
       final res = await http
-          .get(_syncUri('love_app_sync/couple_relation.json'),
-              headers: _headers)
+          .get(WebdavClient.syncUri('love_app_sync/couple_relation.json'),
+              headers: WebdavClient.headers)
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         final remoteRelation = _requireValidPairRelation(
@@ -414,7 +339,7 @@ class WebdavService {
         return null;
       }
 
-      throw Exception(_connectionHelp(
+      throw Exception(WebdavClient.connectionHelp(
         'WebDAV pair data fetch failed',
         statusCode: res.statusCode,
       ));
@@ -426,7 +351,7 @@ class WebdavService {
       if (e is Exception && e.toString().contains('无法连接坚果云 WebDAV')) {
         rethrow;
       }
-      throw Exception(_connectionHelp(e));
+      throw Exception(WebdavClient.connectionHelp(e));
     }
   }
 
@@ -457,7 +382,7 @@ class WebdavService {
       relation[role == roleUser1 ? 'user1_name' : 'user2_name'] = newNickname;
       relation['updatedAt'] = DateTime.now().toIso8601String();
       await box.put(_keyRelation, relation);
-      await _safeUploadWithRetry('couple_relation.json', relation);
+      await WebdavClient.safeUploadWithRetry('couple_relation.json', relation);
     }
   }
 
@@ -483,7 +408,7 @@ class WebdavService {
     final relation = await getLocalRelation() ??
         {
           'objectId': 'relation_webdav',
-          'couple_id': 'webdav_couple_${_username.hashCode}',
+          'couple_id': 'webdav_couple_${WebdavClient.username.hashCode}',
           'user1_id': 'webdav_user_a',
           'user2_id': 'webdav_user_b',
           'heartbeat_count': 0,
@@ -505,7 +430,7 @@ class WebdavService {
 
     final box = Hive.box('user');
     final uploaded =
-        await _safeUploadWithRetry('couple_relation.json', relation);
+        await WebdavClient.safeUploadWithRetry('couple_relation.json', relation);
     if (!uploaded) {
       throw Exception(
         '云端配对关系上传失败：已连接服务器但无法写入 /love_app_sync/couple_relation.json。'
@@ -518,7 +443,7 @@ class WebdavService {
     await box.put(
       _keyCurrentUser,
       _userForRole(
-        user['username'] as String? ?? _username,
+        user['username'] as String? ?? WebdavClient.username,
         selectedRole,
         relation,
       ),
@@ -540,7 +465,7 @@ class WebdavService {
       await box.put(_keyRelation, relation);
 
       final success =
-          await _uploadFileWithLock('couple_relation.json', relation);
+          await WebdavClient.uploadFileWithLock('couple_relation.json', relation);
       if (success) return newCount;
 
       // 冲突，短暂等待后重试
@@ -560,13 +485,13 @@ class WebdavService {
   static Future<void> clearCloudPairingRelation() async {
     try {
       final res = await http
-          .delete(_syncUri('love_app_sync/couple_relation.json'),
-              headers: _headers)
+          .delete(WebdavClient.syncUri('love_app_sync/couple_relation.json'),
+              headers: WebdavClient.headers)
           .timeout(const Duration(seconds: 10));
       if (res.statusCode != 200 &&
           res.statusCode != 204 &&
           res.statusCode != 404) {
-        throw Exception(_connectionHelp(
+        throw Exception(WebdavClient.connectionHelp(
           'WebDAV pair data delete failed',
           statusCode: res.statusCode,
         ));
@@ -586,7 +511,7 @@ class WebdavService {
       if (e is Exception && e.toString().contains('无法连接坚果云 WebDAV')) {
         rethrow;
       }
-      throw Exception(_connectionHelp(e));
+      throw Exception(WebdavClient.connectionHelp(e));
     }
   }
 
@@ -604,82 +529,6 @@ class WebdavService {
 
   /// 普通上传（无并发保护）
   /// 带 ETag 乐观锁的上传，返回 true 表示成功，false 表示冲突需重试
-  static Future<bool> _uploadFileWithLock(String fileName, dynamic data) async {
-    try {
-      final bodyStr = jsonEncode(data);
-      final headers = Map<String, String>.from(_headers);
-      final cachedEtag = _etags[fileName];
-      if (cachedEtag != null) {
-        headers['If-Match'] = cachedEtag;
-      }
-      final res = await http
-          .put(
-            _syncUri('love_app_sync/$fileName'),
-            headers: headers,
-            body: utf8.encode(bodyStr),
-          )
-          .timeout(const Duration(seconds: 10));
-      if (res.statusCode == 412) return false; // ETag 不匹配，冲突
-      if (res.statusCode < 200 || res.statusCode >= 300) {
-        print(
-          "WebDAV uploadWithLock $fileName failed: HTTP ${res.statusCode}",
-        );
-        return false;
-      }
-      final etag = res.headers['etag'];
-      if (etag != null) _etags[fileName] = etag;
-      return true;
-    } catch (e) {
-      print("WebDAV uploadWithLock $fileName failed: $e");
-      return false;
-    }
-  }
-
-  /// 带冲突重试的安全上传（读→合并→写，最多重试 1 次）
-  static Future<bool> _safeUploadWithRetry(
-      String fileName, dynamic data) async {
-    final success = await _uploadFileWithLock(fileName, data);
-    if (success) return true;
-
-    // 冲突：重新下载远端数据，合并后再试一次
-    final remote = await _downloadFile(fileName);
-    if (remote is List) {
-      final localList = data is List
-          ? List<Map<String, dynamic>>.from(data)
-          : <Map<String, dynamic>>[];
-      final remoteList = List<Map<String, dynamic>>.from(remote);
-      final merged = _mergeLists(localList, remoteList);
-      return _uploadFileWithLock(fileName, merged);
-    } else if (remote is Map<String, dynamic> && data is Map<String, dynamic>) {
-      final merged = <String, dynamic>{}
-        ..addAll(remote)
-        ..addAll(data);
-      return _uploadFileWithLock(fileName, merged);
-    }
-    return false;
-  }
-
-  static Future<dynamic> _downloadFile(String fileName) async {
-    try {
-      final res = await http
-          .get(_syncUri('love_app_sync/$fileName'), headers: _headers)
-          .timeout(const Duration(seconds: 10));
-      if (res.statusCode == 200) {
-        return jsonDecode(utf8.decode(res.bodyBytes));
-      }
-    } catch (e) {
-      print("WebDAV download $fileName failed: $e");
-    }
-    return null;
-  }
-
-  /// 列表合并去重新算法：按 objectId 合并，若重复取 updatedAt 较晚者
-  static List<Map<String, dynamic>> _mergeLists(
-      List<Map<String, dynamic>> localList,
-      List<Map<String, dynamic>> remoteList) {
-    return SyncMerge.mergeRecords(localList, remoteList);
-  }
-
   static List<Map<String, dynamic>> _recordsFromRawList(dynamic raw) {
     if (raw is! List) return [];
 
@@ -750,10 +599,10 @@ class WebdavService {
 
   static Future<List<Map<String, dynamic>>> _loadMergedLocations() async {
     final localList = _loadCachedLocations();
-    final remoteRaw = await _downloadFile('locations.json');
+    final remoteRaw = await WebdavClient.downloadFile('locations.json');
     if (remoteRaw is List) {
       final remoteList = _recordsFromRawList(remoteRaw);
-      final merged = _mergeLists(localList, remoteList);
+      final merged = SyncMerge.mergeRecords(localList, remoteList);
       await Hive.box('user').put(_keyLocations, merged);
       return merged;
     }
@@ -767,8 +616,8 @@ class WebdavService {
     String timestamp,
   ) {
     return {
-      'objectId': user['objectId']?.toString() ?? _username,
-      'username': user['username']?.toString() ?? _username,
+      'objectId': user['objectId']?.toString() ?? WebdavClient.username,
+      'username': user['username']?.toString() ?? WebdavClient.username,
       'nickname': user['nickname']?.toString() ?? user['username']?.toString(),
       'couple_id': user['couple_id'],
       'latitude': latitude,
@@ -781,61 +630,33 @@ class WebdavService {
   // --- 图片上传/删除 ---
 
   /// 上传图片到 WebDAV images 目录，返回文件名
-  static Future<String?> _uploadImageBytes(
-      String fileName, List<int> bytes) async {
-    try {
-      final res = await http
-          .put(
-            _syncUri('love_app_sync/images/$fileName'),
-            headers: _headers,
-            body: bytes,
-          )
-          .timeout(const Duration(seconds: 15));
-      if (res.statusCode < 200 || res.statusCode >= 300) {
-        return null;
-      }
-      return fileName;
-    } catch (e) {
-      print('WebDAV upload image $fileName failed: $e');
-      return null;
-    }
-  }
-
-  /// 删除 WebDAV 上的图片文件
-  static Future<void> _deleteImageFile(String fileName) async {
-    try {
-      await http
-          .delete(_syncUri('love_app_sync/images/$fileName'), headers: _headers)
-          .timeout(const Duration(seconds: 10));
-    } catch (e) {
-      print('WebDAV delete image $fileName failed: $e');
-    }
-  }
-
   // --- 日记同步 ---
-  static Future<List<Map<String, dynamic>>> fetchDiaries() async {
+  static Future<List<Diary>> fetchDiaries({int limit = 20, int offset = 0}) async {
     final localBox = Hive.box('diaries');
     final List<dynamic> localRaw = localBox.get('list') ?? [];
     final localList = List<Map<String, dynamic>>.from(
         localRaw.map((e) => Map<String, dynamic>.from(e as Map)));
 
     // 下载云端数据
-    final remoteRaw = await _downloadFile('diaries.json');
+    final remoteRaw = await WebdavClient.downloadFile('diaries.json');
     if (remoteRaw != null && remoteRaw is List) {
       final remoteList = List<Map<String, dynamic>>.from(
           remoteRaw.map((e) => Map<String, dynamic>.from(e as Map)));
 
       // 合并
-      final merged = _mergeLists(localList, remoteList);
+      final merged = SyncMerge.mergeRecords(localList, remoteList);
       final visible = SyncMerge.visibleRecords(merged);
       visible.sort((a, b) =>
           (b['date'] as String).compareTo(a['date'] as String)); // 日期倒序
 
       await localBox.put('list', merged);
-      return visible;
+      return visible.skip(offset).take(limit).map((e) => Diary.fromJson(e)).toList();
     }
 
-    return SyncMerge.visibleRecords(localList);
+    final visibleLocal = SyncMerge.visibleRecords(localList);
+    visibleLocal.sort((a, b) =>
+          (b['date'] as String).compareTo(a['date'] as String));
+    return visibleLocal.skip(offset).take(limit).map((e) => Diary.fromJson(e)).toList();
   }
 
   static Future<void> saveDiary({
@@ -863,7 +684,7 @@ class WebdavService {
           final bytes = base64Decode(parts[1]);
           final ext = imageUrl.contains('image/png') ? 'png' : 'jpg';
           final fileName = 'img_$finalObjectId.$ext';
-          final uploaded = await _uploadImageBytes(fileName, bytes);
+          final uploaded = await WebdavClient.uploadImageBytes(fileName, bytes);
           if (uploaded != null) {
             finalImageUrl = fileName;
           }
@@ -874,21 +695,29 @@ class WebdavService {
       }
     }
 
-    final body = {
-      'objectId': finalObjectId,
-      'couple_id': coupleId,
-      'content': content,
-      'mood': mood,
-      'weather': weather,
-      'tags': tags,
-      'date': date,
-      'image_url': finalImageUrl,
-      'creator_id': user?['objectId'] ?? 'webdav_user',
-      'createdAt': DateTime.now().toIso8601String(),
-      'updatedAt': DateTime.now().toIso8601String(),
-    };
+      final body = {
+        'objectId': finalObjectId,
+        'content': content,
+        'mood': mood,
+        'weather': weather,
+        'tags': tags,
+        'date': date,
+        'imageUrl': finalImageUrl,
+        'couple_id': coupleId,
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
 
-    final box = Hive.box('diaries');
+      try {
+        final success = await WebdavClient.safeUploadWithRetry('diaries.json', [body]);
+        if (!success) {
+          throw Exception('WebDAV saveDiary returned false');
+        }
+      } catch (e) {
+        print("WebDAV saveDiary fallback: $e");
+        SyncQueueManager().enqueueTask('saveDiary', body);
+      }
+
+      final box = Hive.box('diaries');
     final List<dynamic> rawList = box.get('list') ?? [];
     final List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
         rawList.map((e) => Map<String, dynamic>.from(e as Map)));
@@ -902,7 +731,7 @@ class WebdavService {
     await box.put('list', list);
 
     // 立即上传同步
-    await _safeUploadWithRetry('diaries.json', list);
+    await WebdavClient.safeUploadWithRetry('diaries.json', list);
   }
 
   static Future<void> deleteDiary(String objectId) async {
@@ -919,7 +748,7 @@ class WebdavService {
     if (target != null) {
       final img = target['image_url'] as String? ?? '';
       if (img.isNotEmpty && !img.startsWith('data:')) {
-        await _deleteImageFile(img);
+        await WebdavClient.deleteImageFile(img);
       }
     }
 
@@ -931,7 +760,12 @@ class WebdavService {
       list.add(tombstone);
     }
     await box.put('list', list);
-    await _safeUploadWithRetry('diaries.json', list);
+    try {
+      await WebdavClient.safeUploadWithRetry('diaries.json', list);
+    } catch (e) {
+      print("WebDAV deleteDiary fallback: $e");
+      SyncQueueManager().enqueueTask('deleteDiary', {'objectId': objectId});
+    }
   }
 
   // --- 心愿同步 ---
@@ -941,12 +775,12 @@ class WebdavService {
     final localList = List<Map<String, dynamic>>.from(
         localRaw.map((e) => Map<String, dynamic>.from(e as Map)));
 
-    final remoteRaw = await _downloadFile('wishes.json');
+    final remoteRaw = await WebdavClient.downloadFile('wishes.json');
     if (remoteRaw != null && remoteRaw is List) {
       final remoteList = List<Map<String, dynamic>>.from(
           remoteRaw.map((e) => Map<String, dynamic>.from(e as Map)));
 
-      final merged = _mergeLists(localList, remoteList);
+      final merged = SyncMerge.mergeRecords(localList, remoteList);
       await localBox.put('list', merged);
       return SyncMerge.visibleRecords(merged);
     }
@@ -977,7 +811,7 @@ class WebdavService {
         rawList.map((e) => Map<String, dynamic>.from(e as Map)));
     list.add(body);
     await box.put('list', list);
-    await _safeUploadWithRetry('wishes.json', list);
+    await WebdavClient.safeUploadWithRetry('wishes.json', list);
   }
 
   static Future<void> toggleWish(String objectId, bool completed) async {
@@ -993,7 +827,7 @@ class WebdavService {
       list[index]['updatedAt'] = DateTime.now().toIso8601String();
     }
     await box.put('list', list);
-    await _safeUploadWithRetry('wishes.json', list);
+    await WebdavClient.safeUploadWithRetry('wishes.json', list);
   }
 
   static Future<void> deleteWish(String objectId) async {
@@ -1009,7 +843,7 @@ class WebdavService {
       list.add(tombstone);
     }
     await box.put('list', list);
-    await _safeUploadWithRetry('wishes.json', list);
+    await WebdavClient.safeUploadWithRetry('wishes.json', list);
   }
 
   // --- 纪念日同步 ---
@@ -1019,12 +853,12 @@ class WebdavService {
     final localList = List<Map<String, dynamic>>.from(
         localRaw.map((e) => Map<String, dynamic>.from(e as Map)));
 
-    final remoteRaw = await _downloadFile('anniversaries.json');
+    final remoteRaw = await WebdavClient.downloadFile('anniversaries.json');
     if (remoteRaw != null && remoteRaw is List) {
       final remoteList = List<Map<String, dynamic>>.from(
           remoteRaw.map((e) => Map<String, dynamic>.from(e as Map)));
 
-      final merged = _mergeLists(localList, remoteList);
+      final merged = SyncMerge.mergeRecords(localList, remoteList);
       final visible = SyncMerge.visibleRecords(merged);
       visible
           .sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
@@ -1061,7 +895,7 @@ class WebdavService {
     list.add(body);
     list.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
     await box.put('list', list);
-    await _safeUploadWithRetry('anniversaries.json', list);
+    await WebdavClient.safeUploadWithRetry('anniversaries.json', list);
   }
 
   // --- 生理期同步 ---
@@ -1069,10 +903,10 @@ class WebdavService {
     final localBox = Hive.box('period_logs');
     final localRecords = _loadPeriodRecords(localBox);
 
-    final remoteRaw = await _downloadFile('period_logs.json');
+    final remoteRaw = await WebdavClient.downloadFile('period_logs.json');
     if (remoteRaw != null && remoteRaw is List) {
       final remoteRecords = _periodRecordsFromRaw(remoteRaw);
-      final merged = _mergeLists(localRecords, remoteRecords);
+      final merged = SyncMerge.mergeRecords(localRecords, remoteRecords);
 
       // 合并取并集
       await _storePeriodRecords(localBox, merged);
@@ -1109,7 +943,7 @@ class WebdavService {
       list.add(record);
     }
     await _storePeriodRecords(box, list);
-    await _safeUploadWithRetry('period_logs.json', list);
+    await WebdavClient.safeUploadWithRetry('period_logs.json', list);
   }
 
   // --- 亲密记同步 ---
@@ -1119,12 +953,12 @@ class WebdavService {
     final localList = List<Map<String, dynamic>>.from(
         localRaw.map((e) => Map<String, dynamic>.from(e as Map)));
 
-    final remoteRaw = await _downloadFile('intimacy_logs.json');
+    final remoteRaw = await WebdavClient.downloadFile('intimacy_logs.json');
     if (remoteRaw != null && remoteRaw is List) {
       final remoteList = List<Map<String, dynamic>>.from(
           remoteRaw.map((e) => Map<String, dynamic>.from(e as Map)));
 
-      final merged = _mergeLists(localList, remoteList);
+      final merged = SyncMerge.mergeRecords(localList, remoteList);
       final visible = SyncMerge.visibleRecords(merged);
       visible
           .sort((a, b) => (b['date'] as String).compareTo(a['date'] as String));
@@ -1171,7 +1005,7 @@ class WebdavService {
       list.insert(0, body);
     }
     await box.put('list', list);
-    await _safeUploadWithRetry('intimacy_logs.json', list);
+    await WebdavClient.safeUploadWithRetry('intimacy_logs.json', list);
   }
 
   // --- 瀹氫綅鍚屾 ---
@@ -1191,17 +1025,17 @@ class WebdavService {
       longitude,
       timestamp,
     );
-    final merged = _mergeLists(
+    final merged = SyncMerge.mergeRecords(
       _loadCachedLocations(),
       [locationRecord],
     );
-    final latest = _mergeLists(
+    final latest = SyncMerge.mergeRecords(
       merged,
       await _loadMergedLocations(),
     );
 
     await Hive.box('user').put(_keyLocations, latest);
-    await _safeUploadWithRetry('locations.json', latest);
+    await WebdavClient.safeUploadWithRetry('locations.json', latest);
 
     // 同步更新历史轨迹记录
     try {
@@ -1236,10 +1070,10 @@ class WebdavService {
 
   static Future<List<Map<String, dynamic>>> _loadMergedLocationHistory() async {
     final localList = _loadCachedLocationHistory();
-    final remoteRaw = await _downloadFile('location_history.json');
+    final remoteRaw = await WebdavClient.downloadFile('location_history.json');
     if (remoteRaw is List) {
       final remoteList = _recordsFromRawList(remoteRaw);
-      final merged = _mergeLists(localList, remoteList);
+      final merged = SyncMerge.mergeRecords(localList, remoteList);
       await Hive.box('user').put(_keyLocationHistory, merged);
       return merged;
     }
@@ -1250,7 +1084,7 @@ class WebdavService {
     final user = await getCurrentUser();
     if (user == null) return;
 
-    final userId = user['objectId']?.toString() ?? _username;
+    final userId = user['objectId']?.toString() ?? WebdavClient.username;
     final timestamp = DateTime.now().toIso8601String();
 
     final historyList = await _loadMergedLocationHistory();
@@ -1314,7 +1148,7 @@ class WebdavService {
         : filteredHistory;
 
     await Hive.box('user').put(_keyLocationHistory, finalizedHistory);
-    await _safeUploadWithRetry('location_history.json', finalizedHistory);
+    await WebdavClient.safeUploadWithRetry('location_history.json', finalizedHistory);
   }
 
   static Future<List<Map<String, dynamic>>> fetchLocationHistory() async {

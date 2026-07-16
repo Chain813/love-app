@@ -119,7 +119,7 @@ void main() {
     );
 
     final list = Hive.box('diaries').get('list') as List<dynamic>;
-    expect((list.single as Map)['image_url'], isEmpty);
+    expect((list.single as Map)['imageUrl'] ?? '', isEmpty);
   });
 
   test('deleting a wish uploads a tombstone instead of dropping the id',

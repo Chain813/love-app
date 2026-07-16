@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'db_config_service.dart';
+import '../features/diary/models/diary.dart';
 
 class SupabaseService {
   static String get _baseUrl => DbConfigService.supabaseUrl;
@@ -726,14 +727,14 @@ class SupabaseService {
   }
 
   // --- 日记同步 ---
-  static Future<List<Map<String, dynamic>>> fetchDiaries() async {
+  static Future<List<Diary>> fetchDiaries({int limit = 20, int offset = 0}) async {
     try {
       final user = await getCurrentUser();
       if (user == null || user['couple_id'] == null) return [];
 
       final coupleId = user['couple_id'];
       final url = Uri.parse(
-          '$_baseUrl/rest/v1/Diary?couple_id=eq.$coupleId&order=date.desc');
+          '$_baseUrl/rest/v1/Diary?couple_id=eq.$coupleId&order=date.desc&limit=$limit&offset=$offset');
 
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
@@ -756,8 +757,13 @@ class SupabaseService {
         }).toList();
 
         final box = Hive.box('diaries');
-        await box.put('list', list);
-        return list;
+        // Cache merging logic can be improved, but for now we just append or replace
+        // Note: For pagination, replacing the whole list is bad, but for simplicity we keep it as is or append
+        // Actually, to not break existing cache logic for offline, we only cache the first page or merge
+        if (offset == 0) {
+          await box.put('list', list);
+        }
+        return list.map((e) => Diary.fromJson(e)).toList();
       }
     } catch (e) {
       print("fetchDiaries offline fallback: $e");
@@ -766,8 +772,9 @@ class SupabaseService {
     final box = Hive.box('diaries');
     final cached = box.get('list');
     if (cached != null) {
-      return List<Map<String, dynamic>>.from(
+      final cachedList = List<Map<String, dynamic>>.from(
           (cached as List).map((e) => Map<String, dynamic>.from(e as Map)));
+      return cachedList.skip(offset).take(limit).map((e) => Diary.fromJson(e)).toList();
     }
     return [];
   }

@@ -1,7 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part './anniversary.freezed.dart';
-part './anniversary.g.dart';
+part 'anniversary.freezed.dart';
+part 'anniversary.g.dart';
 
 /// 纪念日模型
 @freezed

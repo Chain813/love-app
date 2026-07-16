@@ -21,33 +21,20 @@ Diary _$DiaryFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$Diary {
   @JsonKey(name: 'objectId')
-  String get id => throw _privateConstructorUsedError;
+  String get objectId => throw _privateConstructorUsedError;
   @JsonKey(name: 'couple_id')
   String get coupleId => throw _privateConstructorUsedError;
-  String? get title => throw _privateConstructorUsedError;
   String get content => throw _privateConstructorUsedError;
-  List<String> get images => throw _privateConstructorUsedError;
-  @JsonKey(name: 'video_url')
-  String? get videoUrl => throw _privateConstructorUsedError;
-  String get weather => throw _privateConstructorUsedError;
-  @JsonKey(name: 'weather_text')
-  String get weatherText => throw _privateConstructorUsedError;
   String get mood => throw _privateConstructorUsedError;
-  @JsonKey(name: 'mood_text')
-  String get moodText => throw _privateConstructorUsedError;
+  String get weather => throw _privateConstructorUsedError;
   List<String> get tags => throw _privateConstructorUsedError;
-  @JsonKey(name: 'location_name')
-  String? get locationName => throw _privateConstructorUsedError;
-  double? get latitude => throw _privateConstructorUsedError;
-  double? get longitude => throw _privateConstructorUsedError;
-  @JsonKey(name: 'author_id')
-  String get authorId => throw _privateConstructorUsedError;
-  @JsonKey(name: 'last_editor_id')
-  String? get lastEditorId => throw _privateConstructorUsedError;
-  @JsonKey(name: 'diary_date')
-  DateTime get diaryDate => throw _privateConstructorUsedError;
-  DateTime get createdAt => throw _privateConstructorUsedError;
-  DateTime get updatedAt => throw _privateConstructorUsedError;
+  String get date => throw _privateConstructorUsedError;
+  @JsonKey(name: 'image_url')
+  String? get imageUrl => throw _privateConstructorUsedError;
+  @JsonKey(name: 'creator_id')
+  String get creatorId => throw _privateConstructorUsedError;
+  String get createdAt => throw _privateConstructorUsedError;
+  String get updatedAt => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -60,25 +47,17 @@ abstract class $DiaryCopyWith<$Res> {
       _$DiaryCopyWithImpl<$Res, Diary>;
   @useResult
   $Res call(
-      {@JsonKey(name: 'objectId') String id,
+      {@JsonKey(name: 'objectId') String objectId,
       @JsonKey(name: 'couple_id') String coupleId,
-      String? title,
       String content,
-      List<String> images,
-      @JsonKey(name: 'video_url') String? videoUrl,
-      String weather,
-      @JsonKey(name: 'weather_text') String weatherText,
       String mood,
-      @JsonKey(name: 'mood_text') String moodText,
+      String weather,
       List<String> tags,
-      @JsonKey(name: 'location_name') String? locationName,
-      double? latitude,
-      double? longitude,
-      @JsonKey(name: 'author_id') String authorId,
-      @JsonKey(name: 'last_editor_id') String? lastEditorId,
-      @JsonKey(name: 'diary_date') DateTime diaryDate,
-      DateTime createdAt,
-      DateTime updatedAt});
+      String date,
+      @JsonKey(name: 'image_url') String? imageUrl,
+      @JsonKey(name: 'creator_id') String creatorId,
+      String createdAt,
+      String updatedAt});
 }
 
 /// @nodoc
@@ -94,103 +73,63 @@ class _$DiaryCopyWithImpl<$Res, $Val extends Diary>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? id = null,
+    Object? objectId = null,
     Object? coupleId = null,
-    Object? title = freezed,
     Object? content = null,
-    Object? images = null,
-    Object? videoUrl = freezed,
-    Object? weather = null,
-    Object? weatherText = null,
     Object? mood = null,
-    Object? moodText = null,
+    Object? weather = null,
     Object? tags = null,
-    Object? locationName = freezed,
-    Object? latitude = freezed,
-    Object? longitude = freezed,
-    Object? authorId = null,
-    Object? lastEditorId = freezed,
-    Object? diaryDate = null,
+    Object? date = null,
+    Object? imageUrl = freezed,
+    Object? creatorId = null,
     Object? createdAt = null,
     Object? updatedAt = null,
   }) {
     return _then(_value.copyWith(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
+      objectId: null == objectId
+          ? _value.objectId
+          : objectId // ignore: cast_nullable_to_non_nullable
               as String,
       coupleId: null == coupleId
           ? _value.coupleId
           : coupleId // ignore: cast_nullable_to_non_nullable
               as String,
-      title: freezed == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String?,
       content: null == content
           ? _value.content
           : content // ignore: cast_nullable_to_non_nullable
-              as String,
-      images: null == images
-          ? _value.images
-          : images // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-      videoUrl: freezed == videoUrl
-          ? _value.videoUrl
-          : videoUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      weather: null == weather
-          ? _value.weather
-          : weather // ignore: cast_nullable_to_non_nullable
-              as String,
-      weatherText: null == weatherText
-          ? _value.weatherText
-          : weatherText // ignore: cast_nullable_to_non_nullable
               as String,
       mood: null == mood
           ? _value.mood
           : mood // ignore: cast_nullable_to_non_nullable
               as String,
-      moodText: null == moodText
-          ? _value.moodText
-          : moodText // ignore: cast_nullable_to_non_nullable
+      weather: null == weather
+          ? _value.weather
+          : weather // ignore: cast_nullable_to_non_nullable
               as String,
       tags: null == tags
           ? _value.tags
           : tags // ignore: cast_nullable_to_non_nullable
               as List<String>,
-      locationName: freezed == locationName
-          ? _value.locationName
-          : locationName // ignore: cast_nullable_to_non_nullable
-              as String?,
-      latitude: freezed == latitude
-          ? _value.latitude
-          : latitude // ignore: cast_nullable_to_non_nullable
-              as double?,
-      longitude: freezed == longitude
-          ? _value.longitude
-          : longitude // ignore: cast_nullable_to_non_nullable
-              as double?,
-      authorId: null == authorId
-          ? _value.authorId
-          : authorId // ignore: cast_nullable_to_non_nullable
+      date: null == date
+          ? _value.date
+          : date // ignore: cast_nullable_to_non_nullable
               as String,
-      lastEditorId: freezed == lastEditorId
-          ? _value.lastEditorId
-          : lastEditorId // ignore: cast_nullable_to_non_nullable
+      imageUrl: freezed == imageUrl
+          ? _value.imageUrl
+          : imageUrl // ignore: cast_nullable_to_non_nullable
               as String?,
-      diaryDate: null == diaryDate
-          ? _value.diaryDate
-          : diaryDate // ignore: cast_nullable_to_non_nullable
-              as DateTime,
+      creatorId: null == creatorId
+          ? _value.creatorId
+          : creatorId // ignore: cast_nullable_to_non_nullable
+              as String,
       createdAt: null == createdAt
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
+              as String,
       updatedAt: null == updatedAt
           ? _value.updatedAt
           : updatedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
+              as String,
     ) as $Val);
   }
 }
@@ -203,25 +142,17 @@ abstract class _$$DiaryImplCopyWith<$Res> implements $DiaryCopyWith<$Res> {
   @override
   @useResult
   $Res call(
-      {@JsonKey(name: 'objectId') String id,
+      {@JsonKey(name: 'objectId') String objectId,
       @JsonKey(name: 'couple_id') String coupleId,
-      String? title,
       String content,
-      List<String> images,
-      @JsonKey(name: 'video_url') String? videoUrl,
-      String weather,
-      @JsonKey(name: 'weather_text') String weatherText,
       String mood,
-      @JsonKey(name: 'mood_text') String moodText,
+      String weather,
       List<String> tags,
-      @JsonKey(name: 'location_name') String? locationName,
-      double? latitude,
-      double? longitude,
-      @JsonKey(name: 'author_id') String authorId,
-      @JsonKey(name: 'last_editor_id') String? lastEditorId,
-      @JsonKey(name: 'diary_date') DateTime diaryDate,
-      DateTime createdAt,
-      DateTime updatedAt});
+      String date,
+      @JsonKey(name: 'image_url') String? imageUrl,
+      @JsonKey(name: 'creator_id') String creatorId,
+      String createdAt,
+      String updatedAt});
 }
 
 /// @nodoc
@@ -235,103 +166,63 @@ class __$$DiaryImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? id = null,
+    Object? objectId = null,
     Object? coupleId = null,
-    Object? title = freezed,
     Object? content = null,
-    Object? images = null,
-    Object? videoUrl = freezed,
-    Object? weather = null,
-    Object? weatherText = null,
     Object? mood = null,
-    Object? moodText = null,
+    Object? weather = null,
     Object? tags = null,
-    Object? locationName = freezed,
-    Object? latitude = freezed,
-    Object? longitude = freezed,
-    Object? authorId = null,
-    Object? lastEditorId = freezed,
-    Object? diaryDate = null,
+    Object? date = null,
+    Object? imageUrl = freezed,
+    Object? creatorId = null,
     Object? createdAt = null,
     Object? updatedAt = null,
   }) {
     return _then(_$DiaryImpl(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
+      objectId: null == objectId
+          ? _value.objectId
+          : objectId // ignore: cast_nullable_to_non_nullable
               as String,
       coupleId: null == coupleId
           ? _value.coupleId
           : coupleId // ignore: cast_nullable_to_non_nullable
               as String,
-      title: freezed == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String?,
       content: null == content
           ? _value.content
           : content // ignore: cast_nullable_to_non_nullable
-              as String,
-      images: null == images
-          ? _value._images
-          : images // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-      videoUrl: freezed == videoUrl
-          ? _value.videoUrl
-          : videoUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
-      weather: null == weather
-          ? _value.weather
-          : weather // ignore: cast_nullable_to_non_nullable
-              as String,
-      weatherText: null == weatherText
-          ? _value.weatherText
-          : weatherText // ignore: cast_nullable_to_non_nullable
               as String,
       mood: null == mood
           ? _value.mood
           : mood // ignore: cast_nullable_to_non_nullable
               as String,
-      moodText: null == moodText
-          ? _value.moodText
-          : moodText // ignore: cast_nullable_to_non_nullable
+      weather: null == weather
+          ? _value.weather
+          : weather // ignore: cast_nullable_to_non_nullable
               as String,
       tags: null == tags
           ? _value._tags
           : tags // ignore: cast_nullable_to_non_nullable
               as List<String>,
-      locationName: freezed == locationName
-          ? _value.locationName
-          : locationName // ignore: cast_nullable_to_non_nullable
-              as String?,
-      latitude: freezed == latitude
-          ? _value.latitude
-          : latitude // ignore: cast_nullable_to_non_nullable
-              as double?,
-      longitude: freezed == longitude
-          ? _value.longitude
-          : longitude // ignore: cast_nullable_to_non_nullable
-              as double?,
-      authorId: null == authorId
-          ? _value.authorId
-          : authorId // ignore: cast_nullable_to_non_nullable
+      date: null == date
+          ? _value.date
+          : date // ignore: cast_nullable_to_non_nullable
               as String,
-      lastEditorId: freezed == lastEditorId
-          ? _value.lastEditorId
-          : lastEditorId // ignore: cast_nullable_to_non_nullable
+      imageUrl: freezed == imageUrl
+          ? _value.imageUrl
+          : imageUrl // ignore: cast_nullable_to_non_nullable
               as String?,
-      diaryDate: null == diaryDate
-          ? _value.diaryDate
-          : diaryDate // ignore: cast_nullable_to_non_nullable
-              as DateTime,
+      creatorId: null == creatorId
+          ? _value.creatorId
+          : creatorId // ignore: cast_nullable_to_non_nullable
+              as String,
       createdAt: null == createdAt
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
+              as String,
       updatedAt: null == updatedAt
           ? _value.updatedAt
           : updatedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
+              as String,
     ));
   }
 }
@@ -340,65 +231,34 @@ class __$$DiaryImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$DiaryImpl implements _Diary {
   const _$DiaryImpl(
-      {@JsonKey(name: 'objectId') required this.id,
+      {@JsonKey(name: 'objectId') required this.objectId,
       @JsonKey(name: 'couple_id') required this.coupleId,
-      this.title,
       required this.content,
-      final List<String> images = const <String>[],
-      @JsonKey(name: 'video_url') this.videoUrl,
-      this.weather = '☀️',
-      @JsonKey(name: 'weather_text') this.weatherText = '晴天',
-      this.mood = '😊',
-      @JsonKey(name: 'mood_text') this.moodText = '开心',
+      required this.mood,
+      required this.weather,
       final List<String> tags = const <String>[],
-      @JsonKey(name: 'location_name') this.locationName,
-      this.latitude,
-      this.longitude,
-      @JsonKey(name: 'author_id') required this.authorId,
-      @JsonKey(name: 'last_editor_id') this.lastEditorId,
-      @JsonKey(name: 'diary_date') required this.diaryDate,
+      required this.date,
+      @JsonKey(name: 'image_url') this.imageUrl,
+      @JsonKey(name: 'creator_id') required this.creatorId,
       required this.createdAt,
       required this.updatedAt})
-      : _images = images,
-        _tags = tags;
+      : _tags = tags;
 
   factory _$DiaryImpl.fromJson(Map<String, dynamic> json) =>
       _$$DiaryImplFromJson(json);
 
   @override
   @JsonKey(name: 'objectId')
-  final String id;
+  final String objectId;
   @override
   @JsonKey(name: 'couple_id')
   final String coupleId;
   @override
-  final String? title;
-  @override
   final String content;
-  final List<String> _images;
   @override
-  @JsonKey()
-  List<String> get images {
-    if (_images is EqualUnmodifiableListView) return _images;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_images);
-  }
-
-  @override
-  @JsonKey(name: 'video_url')
-  final String? videoUrl;
-  @override
-  @JsonKey()
-  final String weather;
-  @override
-  @JsonKey(name: 'weather_text')
-  final String weatherText;
-  @override
-  @JsonKey()
   final String mood;
   @override
-  @JsonKey(name: 'mood_text')
-  final String moodText;
+  final String weather;
   final List<String> _tags;
   @override
   @JsonKey()
@@ -409,29 +269,21 @@ class _$DiaryImpl implements _Diary {
   }
 
   @override
-  @JsonKey(name: 'location_name')
-  final String? locationName;
+  final String date;
   @override
-  final double? latitude;
+  @JsonKey(name: 'image_url')
+  final String? imageUrl;
   @override
-  final double? longitude;
+  @JsonKey(name: 'creator_id')
+  final String creatorId;
   @override
-  @JsonKey(name: 'author_id')
-  final String authorId;
+  final String createdAt;
   @override
-  @JsonKey(name: 'last_editor_id')
-  final String? lastEditorId;
-  @override
-  @JsonKey(name: 'diary_date')
-  final DateTime diaryDate;
-  @override
-  final DateTime createdAt;
-  @override
-  final DateTime updatedAt;
+  final String updatedAt;
 
   @override
   String toString() {
-    return 'Diary(id: $id, coupleId: $coupleId, title: $title, content: $content, images: $images, videoUrl: $videoUrl, weather: $weather, weatherText: $weatherText, mood: $mood, moodText: $moodText, tags: $tags, locationName: $locationName, latitude: $latitude, longitude: $longitude, authorId: $authorId, lastEditorId: $lastEditorId, diaryDate: $diaryDate, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'Diary(objectId: $objectId, coupleId: $coupleId, content: $content, mood: $mood, weather: $weather, tags: $tags, date: $date, imageUrl: $imageUrl, creatorId: $creatorId, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -439,33 +291,19 @@ class _$DiaryImpl implements _Diary {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$DiaryImpl &&
-            (identical(other.id, id) || other.id == id) &&
+            (identical(other.objectId, objectId) ||
+                other.objectId == objectId) &&
             (identical(other.coupleId, coupleId) ||
                 other.coupleId == coupleId) &&
-            (identical(other.title, title) || other.title == title) &&
             (identical(other.content, content) || other.content == content) &&
-            const DeepCollectionEquality().equals(other._images, _images) &&
-            (identical(other.videoUrl, videoUrl) ||
-                other.videoUrl == videoUrl) &&
-            (identical(other.weather, weather) || other.weather == weather) &&
-            (identical(other.weatherText, weatherText) ||
-                other.weatherText == weatherText) &&
             (identical(other.mood, mood) || other.mood == mood) &&
-            (identical(other.moodText, moodText) ||
-                other.moodText == moodText) &&
+            (identical(other.weather, weather) || other.weather == weather) &&
             const DeepCollectionEquality().equals(other._tags, _tags) &&
-            (identical(other.locationName, locationName) ||
-                other.locationName == locationName) &&
-            (identical(other.latitude, latitude) ||
-                other.latitude == latitude) &&
-            (identical(other.longitude, longitude) ||
-                other.longitude == longitude) &&
-            (identical(other.authorId, authorId) ||
-                other.authorId == authorId) &&
-            (identical(other.lastEditorId, lastEditorId) ||
-                other.lastEditorId == lastEditorId) &&
-            (identical(other.diaryDate, diaryDate) ||
-                other.diaryDate == diaryDate) &&
+            (identical(other.date, date) || other.date == date) &&
+            (identical(other.imageUrl, imageUrl) ||
+                other.imageUrl == imageUrl) &&
+            (identical(other.creatorId, creatorId) ||
+                other.creatorId == creatorId) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
@@ -474,28 +312,19 @@ class _$DiaryImpl implements _Diary {
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hashAll([
-        runtimeType,
-        id,
-        coupleId,
-        title,
-        content,
-        const DeepCollectionEquality().hash(_images),
-        videoUrl,
-        weather,
-        weatherText,
-        mood,
-        moodText,
-        const DeepCollectionEquality().hash(_tags),
-        locationName,
-        latitude,
-        longitude,
-        authorId,
-        lastEditorId,
-        diaryDate,
-        createdAt,
-        updatedAt
-      ]);
+  int get hashCode => Object.hash(
+      runtimeType,
+      objectId,
+      coupleId,
+      content,
+      mood,
+      weather,
+      const DeepCollectionEquality().hash(_tags),
+      date,
+      imageUrl,
+      creatorId,
+      createdAt,
+      updatedAt);
 
   @JsonKey(ignore: true)
   @override
@@ -513,75 +342,46 @@ class _$DiaryImpl implements _Diary {
 
 abstract class _Diary implements Diary {
   const factory _Diary(
-      {@JsonKey(name: 'objectId') required final String id,
+      {@JsonKey(name: 'objectId') required final String objectId,
       @JsonKey(name: 'couple_id') required final String coupleId,
-      final String? title,
       required final String content,
-      final List<String> images,
-      @JsonKey(name: 'video_url') final String? videoUrl,
-      final String weather,
-      @JsonKey(name: 'weather_text') final String weatherText,
-      final String mood,
-      @JsonKey(name: 'mood_text') final String moodText,
+      required final String mood,
+      required final String weather,
       final List<String> tags,
-      @JsonKey(name: 'location_name') final String? locationName,
-      final double? latitude,
-      final double? longitude,
-      @JsonKey(name: 'author_id') required final String authorId,
-      @JsonKey(name: 'last_editor_id') final String? lastEditorId,
-      @JsonKey(name: 'diary_date') required final DateTime diaryDate,
-      required final DateTime createdAt,
-      required final DateTime updatedAt}) = _$DiaryImpl;
+      required final String date,
+      @JsonKey(name: 'image_url') final String? imageUrl,
+      @JsonKey(name: 'creator_id') required final String creatorId,
+      required final String createdAt,
+      required final String updatedAt}) = _$DiaryImpl;
 
   factory _Diary.fromJson(Map<String, dynamic> json) = _$DiaryImpl.fromJson;
 
   @override
   @JsonKey(name: 'objectId')
-  String get id;
+  String get objectId;
   @override
   @JsonKey(name: 'couple_id')
   String get coupleId;
   @override
-  String? get title;
-  @override
   String get content;
-  @override
-  List<String> get images;
-  @override
-  @JsonKey(name: 'video_url')
-  String? get videoUrl;
-  @override
-  String get weather;
-  @override
-  @JsonKey(name: 'weather_text')
-  String get weatherText;
   @override
   String get mood;
   @override
-  @JsonKey(name: 'mood_text')
-  String get moodText;
+  String get weather;
   @override
   List<String> get tags;
   @override
-  @JsonKey(name: 'location_name')
-  String? get locationName;
+  String get date;
   @override
-  double? get latitude;
+  @JsonKey(name: 'image_url')
+  String? get imageUrl;
   @override
-  double? get longitude;
+  @JsonKey(name: 'creator_id')
+  String get creatorId;
   @override
-  @JsonKey(name: 'author_id')
-  String get authorId;
+  String get createdAt;
   @override
-  @JsonKey(name: 'last_editor_id')
-  String? get lastEditorId;
-  @override
-  @JsonKey(name: 'diary_date')
-  DateTime get diaryDate;
-  @override
-  DateTime get createdAt;
-  @override
-  DateTime get updatedAt;
+  String get updatedAt;
   @override
   @JsonKey(ignore: true)
   _$$DiaryImplCopyWith<_$DiaryImpl> get copyWith =>

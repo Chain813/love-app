@@ -1,5 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/user_provider.dart';
+import '../../../providers/diary_provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -423,11 +426,11 @@ class _HomeContentState extends State<_HomeContent>
 
   Future<void> _loadDiaryPreview() async {
     try {
-      final diaries = await LeanCloudService.fetchDiaries();
+      final diaries = await LeanCloudService.fetchDiaries(limit: 1, offset: 0);
       if (diaries.isNotEmpty) {
         final latest = diaries.first;
-        _latestDiaryContent = (latest['content'] as String?) ?? '暂无内容';
-        _latestDiaryWeather = (latest['weather'] as String?) ?? '';
+        _latestDiaryContent = latest.content;
+        _latestDiaryWeather = latest.weather;
         if (_latestDiaryContent.length > 20) {
           _latestDiaryContent = '${_latestDiaryContent.substring(0, 20)}...';
         }

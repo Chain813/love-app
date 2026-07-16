@@ -1,7 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part './wish.freezed.dart';
-part './wish.g.dart';
+part 'wish.freezed.dart';
+part 'wish.g.dart';
 
 /// 心愿模型
 @freezed

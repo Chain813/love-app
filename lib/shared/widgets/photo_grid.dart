@@ -5,6 +5,7 @@ import 'local_image_helper.dart'
 import 'package:waterfall_flow/waterfall_flow.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:animate_do/animate_do.dart';
+import 'persistent_network_image.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 /// 照片网格组件 - 支持瀑布流与大图手势查看
@@ -107,16 +108,16 @@ class PhotoGrid extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: aspectRatio,
                     child: url.startsWith('http')
-                        ? CachedNetworkImage(
+                        ? PersistentNetworkImage(
                             imageUrl: url,
                             fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(
+                            placeholder: Container(
                               color: const Color(0xFFF2F2F7),
                               child: const Center(
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               ),
                             ),
-                            errorWidget: (context, url, error) => Container(
+                            errorWidget: Container(
                               color: const Color(0xFFF2F2F7),
                               child: const Icon(Icons.broken_image, color: Colors.grey),
                             ),

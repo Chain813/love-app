@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import '../../../services/leancloud_service.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/diary_provider.dart';
+import '../models/diary.dart';
 import '../../../core/utils/page_transitions.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import './diary_edit_screen.dart';
@@ -16,13 +19,55 @@ class DiaryListScreen extends StatefulWidget {
 }
 
 class _DiaryListScreenState extends State<DiaryListScreen> {
-  List<Map<String, dynamic>> _diaries = [];
+  List<Diary> _diaries = [];
+  bool _hasMore = true;
+  bool _isFetchingMore = false;
+  final ScrollController _scrollController = ScrollController();
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchDiaries();
+    _scrollController.addListener(_onScroll);
+    // ensure diaries are loaded
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final p = context.read<DiaryProvider>();
+      if (p.diaries.isEmpty && !p.isLoading) {
+        p.fetchInitial();
+      }
+    });
+  }
+  
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+  
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      _loadMore();
+    }
+  }
+  
+  Future<void> _loadMore() async {
+    if (_isFetchingMore || !_hasMore) return;
+    setState(() => _isFetchingMore = true);
+    try {
+      final list = await LeanCloudService.fetchDiaries(offset: _diaries.length, limit: 20);
+      if (list.isEmpty) {
+        setState(() => _hasMore = false);
+      } else {
+        setState(() {
+          _diaries.addAll(list);
+          if (list.length < 20) _hasMore = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('加载更多失败: ');
+    } finally {
+      if (mounted) setState(() => _isFetchingMore = false);
+    }
   }
 
   Future<void> _fetchDiaries() async {
@@ -74,24 +119,31 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
                   ? _buildEmptyState(theme)
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
-                      itemCount: _diaries.length,
+                      controller: _scrollController,
+                      itemCount: _diaries.length + (_hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
+                        if (index == _diaries.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
                         final diary = _diaries[index];
-                        final dateStr = diary['date'] as String? ?? '';
-                        final content = diary['content'] as String? ?? '';
-                        final mood = diary['mood'] as String? ?? '😊';
-                        final weather = diary['weather'] as String? ?? '☀️';
-                        final tags = diary['tags'] as List<dynamic>? ?? [];
+                        final dateStr = diary.date;
+                        final content = diary.content;
+                        final mood = diary.mood;
+                        final weather = diary.weather;
+                        final tags = diary.tags;
 
                         return FadeInUp(
-                          duration: Duration(milliseconds: 400 + (index * 80)),
+                          duration: const Duration(milliseconds: 400),
                           child: Slidable(
-                            key: ValueKey(diary['objectId']),
+                            key: ValueKey(diary.objectId),
                             endActionPane: ActionPane(
                               motion: const BehindMotion(),
                               children: [
                                 SlidableAction(
-                                  onPressed: (_) => _confirmDelete(diary['objectId']),
+                                  onPressed: (_) => _confirmDelete(diary.objectId),
                                   backgroundColor: Colors.redAccent,
                                   foregroundColor: Colors.white,
                                   icon: Icons.delete_rounded,
@@ -107,7 +159,7 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
                               weather: weather,
                               tags: tags,
                               primaryColor: theme.colorScheme.primary,
-                              onDelete: () => _confirmDelete(diary['objectId']),
+                              onDelete: () => _confirmDelete(diary.objectId),
                             ),
                           ),
                         );

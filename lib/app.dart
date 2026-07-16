@@ -55,6 +55,8 @@ class _ChongMiAppState extends State<ChongMiApp> {
             title: '虫米',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.getTheme(themeProvider.currentTheme),
+            darkTheme: AppTheme.getDarkTheme(themeProvider.currentTheme),
+            themeMode: ThemeMode.system,
             locale: const Locale('zh'),
             supportedLocales: const [Locale('zh'), Locale('en')],
             localizationsDelegates: [

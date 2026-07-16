@@ -1,4 +1,8 @@
 import 'dart:math';
+import 'package:hive/hive.dart';
+import 'package:geolocator/geolocator.dart';
+import '../core/utils/sync_merge.dart';
+import '../features/diary/models/diary.dart';
 import 'package:intl/intl.dart';
 import 'package:hive/hive.dart';
 
@@ -193,13 +197,14 @@ class LocalDbService {
   }
 
   // --- 本地日记操作 ---
-  static Future<List<Map<String, dynamic>>> fetchDiaries() async {
+  static Future<List<Diary>> fetchDiaries({int limit = 20, int offset = 0}) async {
     final box = Hive.box('diaries');
     final cached = box.get('list');
     if (cached != null) {
-      return List<Map<String, dynamic>>.from(
+      final list = List<Map<String, dynamic>>.from(
         (cached as List).map((e) => Map<String, dynamic>.from(e as Map))
       );
+      return list.skip(offset).take(limit).map((e) => Diary.fromJson(e)).toList();
     }
     return [];
   }

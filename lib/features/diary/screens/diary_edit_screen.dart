@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/persistent_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../../services/leancloud_service.dart';
@@ -22,6 +23,7 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
   String? _selectedImagePath;
   String? _imageDataUri;
   final _imagePicker = ImagePicker();
+  bool _uploadOriginal = false;
 
   // 心情选项
   final List<Map<String, String>> _moods = [
@@ -148,7 +150,7 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
                       child: _imageDataUri != null
                           ? Image.memory(base64Decode(_imageDataUri!.split(',').last), height: 160, width: double.infinity, fit: BoxFit.cover)
                           : (kIsWeb
-                              ? Image.network(_selectedImagePath!, height: 160, width: double.infinity, fit: BoxFit.cover)
+                              ? PersistentNetworkImage(imageUrl: _selectedImagePath!, height: 160, width: double.infinity, fit: BoxFit.cover)
                               : Image.file(File(_selectedImagePath!), height: 160, width: double.infinity, fit: BoxFit.cover)),
                     ),
                     Positioned(
@@ -331,8 +333,8 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
     try {
       final picked = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 70,
-        maxWidth: 800,
+        imageQuality: _uploadOriginal ? null : 70,
+        maxWidth: _uploadOriginal ? null : 1200,
       );
       if (picked != null && mounted) {
         // 读取图片字节并转为 base64 data URI（可跨设备同步）

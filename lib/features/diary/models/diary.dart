@@ -1,35 +1,26 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part './diary.freezed.dart';
-part './diary.g.dart';
+part 'diary.freezed.dart';
+part 'diary.g.dart';
 
 /// 日记模型
 @freezed
 class Diary with _$Diary {
   const factory Diary({
-    @JsonKey(name: 'objectId') required String id,
+    @JsonKey(name: 'objectId') required String objectId,
     @JsonKey(name: 'couple_id') required String coupleId,
-    String? title,
     required String content,
-    @Default(<String>[]) List<String> images,
-    @JsonKey(name: 'video_url') String? videoUrl,
-    @Default('☀️') String weather,
-    @JsonKey(name: 'weather_text') @Default('晴天') String weatherText,
-    @Default('😊') String mood,
-    @JsonKey(name: 'mood_text') @Default('开心') String moodText,
+    required String mood,
+    required String weather,
     @Default(<String>[]) List<String> tags,
-    @JsonKey(name: 'location_name') String? locationName,
-    double? latitude,
-    double? longitude,
-    @JsonKey(name: 'author_id') required String authorId,
-    @JsonKey(name: 'last_editor_id') String? lastEditorId,
-    @JsonKey(name: 'diary_date') required DateTime diaryDate,
-    required DateTime createdAt,
-    required DateTime updatedAt,
+    required String date,
+    @JsonKey(name: 'image_url') String? imageUrl,
+    @JsonKey(name: 'creator_id') required String creatorId,
+    required String createdAt,
+    required String updatedAt,
   }) = _Diary;
 
   factory Diary.fromJson(Map<String, dynamic> json) => _$DiaryFromJson(json);
-  factory Diary.fromMap(Map<String, dynamic> map) => Diary.fromJson(map);
 }
 
 extension DiaryExtension on Diary {

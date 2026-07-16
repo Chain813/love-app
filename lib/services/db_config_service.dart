@@ -35,6 +35,7 @@ class DbConfigService {
   static const List<String> _criticalStartupBoxNames = [
     'user',
     'settings',
+    'sync_queue',
   ];
   static const List<String> _deferredStartupBoxNames = [
     'diaries',

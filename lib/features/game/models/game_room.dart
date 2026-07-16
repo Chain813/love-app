@@ -1,7 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part './game_room.freezed.dart';
-part './game_room.g.dart';
+part 'game_room.freezed.dart';
+part 'game_room.g.dart';
 
 /// 游戏房间模型
 @freezed

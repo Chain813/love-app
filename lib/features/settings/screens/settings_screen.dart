@@ -32,7 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (c) => const Center(child: CircularProgressIndicator()),
       );
 
-      final diaries = await LeanCloudService.fetchDiaries();
+      final diaries = await LeanCloudService.fetchDiaries(limit: 9999, offset: 0);
       final wishes = await LeanCloudService.fetchWishes();
       final anniversaries = await LeanCloudService.fetchAnniversaries();
 
@@ -105,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       // 同步各个业务模块
       await Future.wait([
-        LeanCloudService.fetchDiaries(),
+        LeanCloudService.fetchDiaries(limit: 9999, offset: 0),
         LeanCloudService.fetchWishes(),
         LeanCloudService.fetchAnniversaries(),
         LeanCloudService.fetchPeriodLogs(),
